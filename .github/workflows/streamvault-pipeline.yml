@@ -1,0 +1,166 @@
+name: StreamVault Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: 'StreamVault job ID'
+        required: true
+        type: string
+      magnet_uri:
+        description: 'Magnet link to download'
+        required: true
+        type: string
+      file_idx:
+        description: 'File index within torrent'
+        required: true
+        type: string
+        default: '0'
+      callback_url:
+        description: 'Backend callback base URL'
+        required: true
+        type: string
+      callback_token:
+        description: 'Auth token for callbacks'
+        required: true
+        type: string
+      skip_download:
+        description: 'Skip download, restore from checkpoint'
+        required: false
+        type: string
+        default: 'false'
+      skip_transcode:
+        description: 'Skip transcode, restore from checkpoint'
+        required: false
+        type: string
+        default: 'false'
+
+env:
+  CALLBACK_URL: ${{ inputs.callback_url }}
+  CALLBACK_TOKEN: ${{ inputs.callback_token }}
+  JOB_ID: ${{ inputs.job_id }}
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 jq
+
+      - name: Restore download checkpoint
+        if: inputs.skip_download == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-dl-${{ inputs.job_id }}
+          path: ./downloads/
+
+      - name: Download torrent
+        if: inputs.skip_download != 'true'
+        run: |
+          mkdir -p ./downloads
+          echo "Starting download..."
+          aria2c --seed-time=0 \
+            --select-file=${{ inputs.file_idx }} \
+            --dir=./downloads \
+            --summary-interval=10 \
+            --console-log-level=error \
+            "${{ inputs.magnet_uri }}" 2>&1 | tee download.log
+
+          # Report download complete
+          chmod +x .github/scripts/callback.sh
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
+            '{"checkpoint":"download","artifact_id":"checkpoint-dl-${{ inputs.job_id }}"}'
+
+      - name: Save download checkpoint
+        if: inputs.skip_download != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-dl-${{ inputs.job_id }}
+          path: ./downloads/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Detect source resolution
+        id: detect
+        run: |
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          echo "Source file: $INPUT_FILE"
+          SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
+            -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
+          echo "source_height=$SOURCE_HEIGHT" >> $GITHUB_OUTPUT
+
+      - name: Restore transcode checkpoint
+        if: inputs.skip_transcode == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-tc-${{ inputs.job_id }}
+          path: ./hls/
+
+      - name: Transcode to HLS
+        if: inputs.skip_transcode != 'true'
+        run: |
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
+          if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
+            TARGET_HEIGHT=1080
+          else
+            TARGET_HEIGHT=$SOURCE_HEIGHT
+          fi
+          echo "Target resolution: ${TARGET_HEIGHT}p"
+
+          mkdir -p ./hls
+
+          ffmpeg -i "$INPUT_FILE" \
+            -c:v libx264 -preset fast -crf 23 \
+            -vf "scale=-2:${TARGET_HEIGHT}" \
+            -c:a aac -b:a 128k \
+            -hls_time 6 -hls_list_size 0 \
+            -hls_segment_filename "./hls/seg_%05d.ts" \
+            -f hls ./hls/master.m3u8 2>&1 | tee transcode.log
+
+          # Report transcode checkpoint
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
+            '{"checkpoint":"transcode","artifact_id":"checkpoint-tc-${{ inputs.job_id }}"}'
+
+      - name: Save transcode checkpoint
+        if: inputs.skip_transcode != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-tc-${{ inputs.job_id }}
+          path: ./hls/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload to Discord
+        run: |
+          chmod +x .github/scripts/upload-to-discord.sh
+          .github/scripts/upload-to-discord.sh "${{ inputs.job_id }}" \
+            "${{ env.CALLBACK_URL }}" "${{ env.CALLBACK_TOKEN }}" ./hls
+
+      - name: Report completion
+        if: success()
+        run: |
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
+          SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
+          if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
+            RESOLUTION="1080p"
+          else
+            RESOLUTION="${SOURCE_HEIGHT}p"
+          fi
+
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "complete" \
+            "{\"video_resolution\":\"$RESOLUTION\",\"duration_seconds\":$DURATION}"
+          echo "Pipeline completed successfully for job ${{ inputs.job_id }}"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "failed" \
+            "{\"error_message\":\"Pipeline failed at step: ${{ job.status }}\"}"
