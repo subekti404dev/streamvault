@@ -75,6 +75,13 @@ jobs:
         run: |
           mkdir -p ./downloads
           echo "Starting download..."
+          # Public BitTorrent trackers for peer discovery in CI
+          TRACKERS=$(curl -sSf --connect-timeout 5 "https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt" 2>/dev/null | tr '\n' ',' || echo "")
+          # Fallback if remote tracker list fails
+          if [ -z "$TRACKERS" ]; then
+            TRACKERS="udp://tracker.opentrackr.org:1337/announce,udp://tracker.torrent.eu.org:451/announce,udp://open.tracker.cl:1337/announce,udp://tracker.altrosky.nl:6969/announce,http://tracker.bt4g.com:2095/announce"
+          fi
+
           aria2c --seed-time=0 \
             --select-file=$(( ${{ inputs.file_idx }} + 1 )) \
             --dir=./downloads \
@@ -86,6 +93,13 @@ jobs:
             --max-concurrent-downloads=1 \
             --retry-wait=5 \
             --max-tries=5 \
+            --enable-dht=true \
+            --dht-listen-port=6881-6999 \
+            --enable-dht6=true \
+            --dht-message-timeout=10 \
+            --bt-enable-lpd=true \
+            --bt-max-peers=100 \
+            ${TRACKERS:+--bt-tracker="$TRACKERS"} \
             "${{ inputs.magnet_uri }}" 2>&1 | tee download.log
 
           # Report download complete
