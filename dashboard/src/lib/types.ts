@@ -49,6 +49,7 @@ export interface SearchResult {
 export interface Torrent {
   name: string;
   title: string;
+  filename: string;
   size_bytes: number;
   infohash: string;
   magnet_uri: string;

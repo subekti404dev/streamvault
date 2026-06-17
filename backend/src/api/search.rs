@@ -28,6 +28,7 @@ pub struct SearchMeta {
 pub struct TorrentEntry {
     pub name: String,
     pub title: String,
+    pub filename: String,
     pub size_bytes: i64,
     pub infohash: String,
     pub magnet_uri: String,
@@ -191,6 +192,13 @@ async fn search_torrentio(
                 let name = stream.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown");
                 let title = stream.get("title").and_then(|v| v.as_str()).unwrap_or(info_hash);
                 let file_idx = stream.get("fileIdx").and_then(|v| v.as_i64()).unwrap_or(0);
+                
+                // Extract filename from behaviorHints
+                let filename = stream.get("behaviorHints")
+                    .and_then(|bh| bh.get("filename"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
 
                 // Build magnet URI
                 let magnet = format!("magnet:?xt=urn:btih:{}", info_hash);
@@ -198,6 +206,7 @@ async fn search_torrentio(
                 torrents.push(TorrentEntry {
                     name: name.to_string(),
                     title: title.to_string(),
+                    filename,
                     size_bytes: stream.get("size").and_then(|v| v.as_i64()).unwrap_or(0),
                     infohash: info_hash.to_string(),
                     magnet_uri: magnet,

@@ -43,7 +43,7 @@
         poster_url: result?.meta.poster,
         magnet_uri: torrent.magnet_uri,
         infohash: torrent.infohash,
-        torrent_name: torrent.title,
+        torrent_name: torrent.filename || torrent.title,
         file_idx: torrent.file_idx,
         file_size_bytes: torrent.size_bytes,
       });
