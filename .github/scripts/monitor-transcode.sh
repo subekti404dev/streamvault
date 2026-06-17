@@ -61,7 +61,7 @@ echo "Input: $INPUT_FILE, Duration: ${DURATION}s, Source height: $SOURCE_HEIGHT"
 
 # Build ffmpeg filter complex
 FILTER_COMPLEX=""
-STREAM_MAP=""
+STREAM_MAP=()
 MAP_FLAGS=""
 STREAMS_OUT=""
 INDEX=0
@@ -71,10 +71,9 @@ for ((i=0; i<${#RESOLUTIONS[@]}; i++)); do
   H="${RES##*:}"
   if [ $INDEX -gt 0 ]; then
     FILTER_COMPLEX+=","
-    STREAM_MAP+=" "
   fi
   FILTER_COMPLEX+="[v:0]scale=w=$W:h=$H:force_original_aspect_ratio=decrease,setdar=16/9[v$INDEX]"
-  STREAM_MAP+="-map \"[v$INDEX]\" -map \"a:0\""
+  STREAM_MAP+=(-map "[v$INDEX]" -map "a:0")
   STREAMS_OUT+=" -c:v:${INDEX} libx264 -b:v:${INDEX} ${BITRATES[$i]} -maxrate:v:${INDEX} ${MAXRATES[$i]} -bufsize:v:${INDEX} ${BUFSIZES[$i]} -preset fast -g 48 -keyint_min 48 -sc_threshold 0"
   STREAMS_OUT+=" -c:a:${INDEX} aac -b:a:${INDEX} 128k -ac 2"
   INDEX=$((INDEX + 1))
@@ -98,11 +97,11 @@ echo "Starting transcode..." >&2
 # We parse it and calculate percentage based on duration
 ffmpeg -y -i "$INPUT_FILE" \
   -filter_complex "$FILTER_COMPLEX" \
-  $STREAM_MAP \
+  "${STREAM_MAP[@]}" \
   $STREAMS_OUT \
   -f hls -hls_time 6 -hls_list_size 0 -hls_segment_filename "./hls/seg_%v_%03d.ts" \
   -progress pipe:1 \
-  ./hls/%v.m3u8 2>/dev/null | while IFS== read -r key value; do
+  ./hls/%v.m3u8 2>&1 | tee /tmp/ffmpeg.log | while IFS== read -r key value; do
   if [ "$key" = "out_time_us" ]; then
     # out_time_us is in microseconds, total duration in seconds
     USEC="$value"
