@@ -1,0 +1,26 @@
+services:
+  streamvault:
+    image: ghcr.io/${GITHUB_REPOSITORY:-yourname/streamvault}:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - streamvault-data:/data
+    environment:
+      - STREAMVAULT_DATABASE_URL=sqlite:/data/streamvault.db
+      - STREAMVAULT_AUTH_SECRET=${STREAMVAULT_AUTH_SECRET:?Set STREAMVAULT_AUTH_SECRET}
+      - STREAMVAULT_PUBLIC_BASE_URL=${STREAMVAULT_PUBLIC_BASE_URL:?Set STREAMVAULT_PUBLIC_BASE_URL}
+      - STREAMVAULT_GH_TOKEN=${STREAMVAULT_GH_TOKEN:-}
+      - STREAMVAULT_GH_REPO=${STREAMVAULT_GH_REPO:-}
+      - STREAMVAULT_DISCORD_BOT_TOKEN=${STREAMVAULT_DISCORD_BOT_TOKEN:-}
+      - STREAMVAULT_DISCORD_CHANNEL_ID=${STREAMVAULT_DISCORD_CHANNEL_ID:-}
+      - STREAMVAULT_TELEGRAM_BOT_TOKEN=${STREAMVAULT_TELEGRAM_BOT_TOKEN:-}
+      - STREAMVAULT_TELEGRAM_CHANNEL_ID=${STREAMVAULT_TELEGRAM_CHANNEL_ID:-}
+      - STREAMVAULT_TORRENTIO_BASE_URL=${STREAMVAULT_TORRENTIO_BASE_URL:-}
+      - RUST_LOG=${RUST_LOG:-info}
+    restart: unless-stopped
+
+volumes:
+  streamvault-data:
