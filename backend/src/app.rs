@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::path::PathBuf;
 use axum::{
     Router,
     routing::{get, post, put, delete},
@@ -18,7 +19,7 @@ pub struct AppState {
     pub http: reqwest::Client,
 }
 
-pub fn create_router(state: Arc<AppState>) -> Router {
+pub fn create_router(state: Arc<AppState>, dashboard_dir: PathBuf) -> Router {
     let auth_router = Router::new()
         .route("/api/v1/search", post(crate::api::search::search_handler))
         .route("/api/v1/queue", post(crate::api::queue::create_job))
@@ -53,8 +54,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/stream/:type_/:id.json", get(crate::stremio::routes::stream_handler))
         .route("/proxy/hls/:job_id/master.m3u8", get(crate::stremio::proxy::playlist_handler))
         .route("/proxy/hls/:job_id/*filename", get(crate::stremio::proxy::chunk_handler));
-
-    let dashboard_dir = state.config.blocking_read().dashboard_dir.clone();
 
     Router::new()
         .merge(auth_router)

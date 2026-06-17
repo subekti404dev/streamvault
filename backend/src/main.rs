@@ -33,6 +33,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // SSE broadcast channel
     let (event_tx, _) = broadcast::channel(1024);
 
+    // Extract dashboard_dir before consuming config
+    let dashboard_dir = config.dashboard_dir.clone();
+
     // App state
     let state = Arc::new(app::AppState {
         db: pool,
@@ -54,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Scheduler worker started");
 
     // Build router
-    let router = app::create_router(state.clone());
+    let router = app::create_router(state.clone(), dashboard_dir);
 
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
