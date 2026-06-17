@@ -76,7 +76,7 @@ jobs:
           mkdir -p ./downloads
           echo "Starting download..."
           aria2c --seed-time=0 \
-            --select-file=${{ inputs.file_idx }} \
+            --select-file=$(( ${{ inputs.file_idx }} + 1 )) \
             --dir=./downloads \
             --summary-interval=10 \
             --console-log-level=error \
