@@ -54,7 +54,6 @@ aria2c --seed-time=0 \
   --bt-max-peers=100 \
   --bt-stop-timeout="$MAX_IDLE_SECONDS" \
   --bt-metadata-only=false \
-  --bt-save-metadata=true \
   --file-allocation=none \
   ${TRACKERS:+--bt-tracker="$TRACKERS"} \
   "$MAGNET_URI" > download.log 2>&1 &
@@ -105,7 +104,7 @@ while kill -0 $ARIA_PID 2>/dev/null; do
 
   # Fallback heartbeat from downloaded file size if summary parsing fails
   if [ -z "$PCT" ]; then
-    DOWNLOADED_BYTES=$(find ./downloads -type f -not -name "*.log" -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print s+0}')
+    DOWNLOADED_BYTES=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print s+0}')
     if [ "$DOWNLOADED_BYTES" -gt 0 ]; then
       PCT=1
     fi

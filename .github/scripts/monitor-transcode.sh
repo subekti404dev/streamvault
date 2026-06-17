@@ -22,6 +22,17 @@ callback() {
 
 mkdir -p ./hls
 
+# Validate input file exists and is a valid media file
+if [ ! -f "$INPUT_FILE" ]; then
+  echo "ERROR: Input file not found: $INPUT_FILE" >&2
+  exit 1
+fi
+if ! ffprobe -v error "$INPUT_FILE" > /dev/null 2>&1; then
+  echo "ERROR: Input file is not a valid media file: $INPUT_FILE" >&2
+  ls -la "$(dirname "$INPUT_FILE")" >&2
+  exit 1
+fi
+
 # Build HLS variants based on source height
 VARIANTS=""
 if [ "$SOURCE_HEIGHT" -ge 2160 ]; then

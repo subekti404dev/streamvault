@@ -97,7 +97,7 @@ jobs:
       - name: Detect source resolution
         id: detect
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
           echo "Source file: $INPUT_FILE"
           SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
             -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
@@ -113,7 +113,7 @@ jobs:
       - name: Transcode to HLS
         if: inputs.skip_transcode != 'true'
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
           if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
             TARGET_HEIGHT=1080
@@ -155,7 +155,7 @@ jobs:
       - name: Report completion
         if: success()
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" | head -1)
+          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
           DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
           if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
