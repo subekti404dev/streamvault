@@ -42,8 +42,10 @@ export function connectSSE() {
   eventTypes.forEach(type => {
     eventSource?.addEventListener(type, (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data);
-        const event = { type, ...data };
+        const raw = JSON.parse(e.data);
+        // raw = { type: "JobCreated", data: { job_id: "...", title: "..." } }
+        // Use SSE event name (lowercase) as type, and raw.data as payload
+        const event = { type, ...raw.data };
         lastEvent.set(event);
         listeners.forEach(l => l(event));
       } catch { /* ignore parse errors */ }

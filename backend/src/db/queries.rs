@@ -175,16 +175,17 @@ pub async fn update_job_progress(pool: &SqlitePool, id: &str, phase: &str, pct: 
 }
 
 pub async fn update_job_checkpoint(pool: &SqlitePool, id: &str, checkpoint: &str) -> AppResult<()> {
-    let _artifact_col = match checkpoint {
-        "download" => "gh_artifact_id_dl",
-        "transcode" => "gh_artifact_id_tc",
-        _ => return Ok(()),
-    };
-    let sql = format!(
-        "UPDATE jobs SET last_checkpoint = '{}', status = 'checkpoint_{}', updated_at = datetime('now') WHERE id = ?",
-        checkpoint, checkpoint
-    );
-    sqlx::query(&sql).bind(id).execute(pool).await?;
+    if !["download", "transcode"].contains(&checkpoint) {
+        return Ok(());
+    }
+    let new_status = format!("checkpoint_{}", checkpoint);
+    sqlx::query(
+        "UPDATE jobs SET last_checkpoint = ?, status = ?, updated_at = datetime('now') WHERE id = ?"
+    )
+    .bind(checkpoint)
+    .bind(&new_status)
+    .bind(id)
+    .execute(pool).await?;
     Ok(())
 }
 

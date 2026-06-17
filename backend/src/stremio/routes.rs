@@ -50,8 +50,13 @@ pub async fn meta_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Path((type_, imdb_id)): axum::extract::Path<(String, String)>,
 ) -> Json<MetaResponse> {
-    let cached = queries::get_cached_meta(&state.db, &imdb_id, &type_).await
-        .unwrap_or_default();
+    let cached = match queries::get_cached_meta(&state.db, &imdb_id, &type_).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to fetch cached meta for {}: {}", imdb_id, e);
+            return Json(MetaResponse { metas: vec![] });
+        }
+    };
 
     let metas = match cached {
         Some(c) => vec![MetaPreview {
