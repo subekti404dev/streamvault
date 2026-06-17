@@ -16,6 +16,11 @@ on:
         required: true
         type: string
         default: '0'
+      torrent_name:
+        description: 'Original torrent name from Torrentio'
+        required: false
+        type: string
+        default: ''
       callback_url:
         description: 'Backend callback base URL'
         required: true
@@ -97,11 +102,54 @@ jobs:
       - name: Detect source resolution
         id: detect
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
+          # Strategy 1: Find file matching torrent name
+          TORRENT_NAME="${{ inputs.torrent_name }}"
+          INPUT_FILE=""
+          
+          if [ -n "$TORRENT_NAME" ]; then
+            # Extract base filename (remove extension if present)
+            BASE_NAME=$(basename "$TORRENT_NAME" | sed 's/\.[^.]*$//')
+            INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
+              -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+              -not -name "*.aria2.control" | head -1)
+            if [ -n "$INPUT_FILE" ]; then
+              echo "✓ Found file matching torrent name: $INPUT_FILE"
+            fi
+          fi
+          
+          # Strategy 2: Find any video file by extension
+          if [ -z "$INPUT_FILE" ]; then
+            INPUT_FILE=$(find ./downloads -type f \
+              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.wmv" -o -iname "*.flv" \) \
+              -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+              | head -1)
+            if [ -n "$INPUT_FILE" ]; then
+              echo "✓ Found video file by extension: $INPUT_FILE"
+            fi
+          fi
+          
+          # Strategy 3: Find any large file (>100MB) as fallback
+          if [ -z "$INPUT_FILE" ]; then
+            INPUT_FILE=$(find ./downloads -type f -size +100M \
+              -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+              -not -name "*.aria2.control" | head -1)
+            if [ -n "$INPUT_FILE" ]; then
+              echo "✓ Found large file as fallback: $INPUT_FILE"
+            fi
+          fi
+          
+          if [ -z "$INPUT_FILE" ]; then
+            echo "❌ ERROR: No video file found in ./downloads"
+            echo "Contents of ./downloads:"
+            ls -lah ./downloads
+            exit 1
+          fi
+          
           echo "Source file: $INPUT_FILE"
           SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
             -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
           echo "source_height=$SOURCE_HEIGHT" >> $GITHUB_OUTPUT
+          echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
 
       - name: Restore transcode checkpoint
         if: inputs.skip_transcode == 'true'
@@ -113,7 +161,7 @@ jobs:
       - name: Transcode to HLS
         if: inputs.skip_transcode != 'true'
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
+          INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
           if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
             TARGET_HEIGHT=1080
@@ -155,7 +203,7 @@ jobs:
       - name: Report completion
         if: success()
         run: |
-          INPUT_FILE=$(find ./downloads -type f -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" | head -1)
+          INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
           if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then

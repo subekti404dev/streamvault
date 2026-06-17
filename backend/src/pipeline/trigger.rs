@@ -30,6 +30,7 @@ pub async fn trigger_pipeline(
             "job_id": job.id,
             "magnet_uri": job.magnet_uri,
             "file_idx": job.file_idx.unwrap_or(0).to_string(),
+            "torrent_name": job.torrent_name.clone().unwrap_or_default(),
             "callback_url": base_url,
             "callback_token": callback_token,
             "discord_bot_token": discord_token,
