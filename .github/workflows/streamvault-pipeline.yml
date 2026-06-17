@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq aria2 jq
+          sudo apt-get install -y -qq aria2 jq bc
 
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
@@ -73,37 +73,15 @@ jobs:
       - name: Download torrent
         if: inputs.skip_download != 'true'
         run: |
-          mkdir -p ./downloads
-          echo "Starting download..."
-          # Public BitTorrent trackers for peer discovery in CI
-          TRACKERS=$(curl -sSf --connect-timeout 5 "https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt" 2>/dev/null | tr '\n' ',' || echo "")
-          # Fallback if remote tracker list fails
-          if [ -z "$TRACKERS" ]; then
-            TRACKERS="udp://tracker.opentrackr.org:1337/announce,udp://tracker.torrent.eu.org:451/announce,udp://open.tracker.cl:1337/announce,udp://tracker.altrosky.nl:6969/announce,http://tracker.bt4g.com:2095/announce"
-          fi
+          chmod +x .github/scripts/*.sh
+          .github/scripts/monitor-download.sh \
+            "${{ inputs.job_id }}" \
+            "${{ inputs.callback_url }}" \
+            "${{ inputs.callback_token }}" \
+            "${{ inputs.magnet_uri }}" \
+            "$(( ${{ inputs.file_idx }} + 1 ))"
 
-          aria2c --seed-time=0 \
-            --select-file=$(( ${{ inputs.file_idx }} + 1 )) \
-            --dir=./downloads \
-            --summary-interval=10 \
-            --console-log-level=error \
-            --connect-timeout=30 \
-            --max-connection-per-server=4 \
-            --split=4 \
-            --max-concurrent-downloads=1 \
-            --retry-wait=5 \
-            --max-tries=5 \
-            --enable-dht=true \
-            --dht-listen-port=6881-6999 \
-            --enable-dht6=true \
-            --dht-message-timeout=10 \
-            --bt-enable-lpd=true \
-            --bt-max-peers=100 \
-            ${TRACKERS:+--bt-tracker="$TRACKERS"} \
-            "${{ inputs.magnet_uri }}" 2>&1 | tee download.log
-
-          # Report download complete
-          chmod +x .github/scripts/callback.sh
+          # Report download checkpoint
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
             '{"checkpoint":"download","artifact_id":"checkpoint-dl-${{ inputs.job_id }}"}'
 
@@ -144,15 +122,13 @@ jobs:
           fi
           echo "Target resolution: ${TARGET_HEIGHT}p"
 
-          mkdir -p ./hls
-
-          ffmpeg -i "$INPUT_FILE" \
-            -c:v libx264 -preset fast -crf 23 \
-            -vf "scale=-2:${TARGET_HEIGHT}" \
-            -c:a aac -b:a 128k \
-            -hls_time 6 -hls_list_size 0 \
-            -hls_segment_filename "./hls/seg_%05d.ts" \
-            -f hls ./hls/master.m3u8 2>&1 | tee transcode.log
+          chmod +x .github/scripts/*.sh
+          .github/scripts/monitor-transcode.sh \
+            "${{ inputs.job_id }}" \
+            "${{ inputs.callback_url }}" \
+            "${{ inputs.callback_token }}" \
+            "$INPUT_FILE" \
+            "$SOURCE_HEIGHT"
 
           # Report transcode checkpoint
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
