@@ -1,5 +1,15 @@
 name: StreamVault Pipeline
 
+# This workflow downloads, transcodes, and uploads video content.
+# Key inputs:
+#   - file_idx: File index within torrent (0-based from Torrentio)
+#   - torrent_name: Exact filename from Torrentio behaviorHints.filename
+#
+# File detection strategy:
+#   1. Exact match by torrent_name (behaviorHints.filename)
+#   2. Partial match by base filename
+#   3. Fallback to any video file by extension
+
 on:
   workflow_dispatch:
     inputs:
@@ -102,31 +112,50 @@ jobs:
       - name: Detect source resolution
         id: detect
         run: |
-          # Strategy 1: Find file matching torrent name
-          TORRENT_NAME="${{ inputs.torrent_name }}"
+          # Use exact filename from Torrentio behaviorHints.filename
+          FILENAME="${{ inputs.torrent_name }}"
           INPUT_FILE=""
           
-          if [ -n "$TORRENT_NAME" ]; then
-            # Extract base filename (remove extension if present)
-            BASE_NAME=$(basename "$TORRENT_NAME" | sed 's/\.[^.]*$//')
-            INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
+          if [ -n "$FILENAME" ]; then
+            # Try exact match first
+            INPUT_FILE=$(find ./downloads -type f -name "$FILENAME" \
               -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
-              -not -name "*.aria2.control" | head -1)
+              | head -1)
+            
             if [ -n "$INPUT_FILE" ]; then
-              echo "✓ Found file matching torrent name: $INPUT_FILE"
+              echo "✓ Found exact file: $INPUT_FILE"
+            else
+              # Fallback: try partial match (in case filename has special chars)
+              BASE_NAME=$(basename "$FILENAME" | sed 's/\.[^.]*$//')
+              INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
+                -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+                | head -1)
+              if [ -n "$INPUT_FILE" ]; then
+                echo "✓ Found file by partial match: $INPUT_FILE"
+              fi
             fi
           fi
           
-          # Strategy 2: Find any video file by extension
+          # Last resort: find any video file
           if [ -z "$INPUT_FILE" ]; then
             INPUT_FILE=$(find ./downloads -type f \
-              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.wmv" -o -iname "*.flv" \) \
+              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
               -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
               | head -1)
             if [ -n "$INPUT_FILE" ]; then
-              echo "✓ Found video file by extension: $INPUT_FILE"
+              echo "⚠ Fallback: found video by extension: $INPUT_FILE"
             fi
           fi
+          
+          if [ -z "$INPUT_FILE" ]; then
+            echo "❌ Error: No video file found in ./downloads"
+            ls -la ./downloads/
+            exit 1
+          fi
+          
+          echo "input_file=$INPUT_FILE" >> "$GITHUB_OUTPUT"
+          echo "Input file: $INPUT_FILE"
+          echo "File size: $(du -h "$INPUT_FILE" | cut -f1)"
           
           # Strategy 3: Find any large file (>100MB) as fallback
           if [ -z "$INPUT_FILE" ]; then

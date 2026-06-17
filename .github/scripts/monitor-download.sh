@@ -1,6 +1,9 @@
 #!/bin/bash
 # monitor-download.sh — Run aria2c with periodic progress callbacks
 # Usage: monitor-download.sh <job_id> <callback_url> <callback_token> <magnet_uri> <file_idx>
+#
+# file_idx: 1-based index for aria2c --select-file
+#           (convert from Torrentio's 0-based fileIdx by adding 1)
 
 set -uo pipefail
 
