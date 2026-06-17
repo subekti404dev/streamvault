@@ -8,17 +8,46 @@ pub async fn get_settings(
     State(state): State<Arc<AppState>>,
 ) -> AppResult<Json<Value>> {
     let settings = queries::get_all_settings(&state.db).await?;
-    let mut map = HashMap::new();
-    for s in settings {
-        // Mask sensitive values
-        let display = match s.key.as_str() {
-            "gh_token" | "discord_bot_token" | "telegram_bot_token" | "auth_secret" => {
-                mask_token(&s.value)
+    let db_map: HashMap<String, String> = settings.into_iter().map(|s| (s.key, s.value)).collect();
+
+    let config = state.config.read().await;
+
+    // Merge DB settings with env/Config settings (DB takes priority)
+    let keys = [
+        "gh_token", "gh_repo",
+        "discord_bot_token", "discord_channel_id",
+        "telegram_bot_token", "telegram_channel_id",
+        "torrentio_base_url",
+        "public_base_url",
+    ];
+
+    let mut map: HashMap<String, String> = HashMap::new();
+    for &key in &keys {
+        let value = db_map.get(key).cloned().or_else(|| {
+            match key {
+                "gh_token" => config.gh_token.clone(),
+                "gh_repo" => config.gh_repo.clone(),
+                "discord_bot_token" => config.discord_bot_token.clone(),
+                "discord_channel_id" => config.discord_channel_id.clone(),
+                "telegram_bot_token" => config.telegram_bot_token.clone(),
+                "telegram_channel_id" => config.telegram_channel_id.clone(),
+                "torrentio_base_url" => config.torrentio_base_url.clone(),
+                "public_base_url" => Some(config.public_base_url.clone()),
+                _ => None,
             }
-            _ => s.value,
-        };
-        map.insert(s.key, display);
+        });
+
+        if let Some(v) = value {
+            let display = match key {
+                "gh_token" | "discord_bot_token" | "telegram_bot_token" | "auth_secret" => {
+                    mask_token(&v)
+                }
+                _ => v,
+            };
+            map.insert(key.to_string(), display);
+        }
     }
+
     Ok(Json(json!(map)))
 }
 

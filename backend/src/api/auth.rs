@@ -12,17 +12,29 @@ pub async fn auth_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, &'static str)> {
-    let auth_header = req
+    // Check Bearer header first
+    let header_token = req
         .headers()
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|v| v.to_string());
 
-    let secret = state.config.read().await.auth_secret.clone();
+    // Fall back to ?token= query param (for SSE EventSource)
+    let query_token = req.uri().query().and_then(|q| {
+        q.split('&').find_map(|pair| {
+            let mut parts = pair.splitn(2, '=');
+            let key = parts.next()?;
+            let value = parts.next()?;
+            if key == "token" { Some(value.to_string()) } else { None }
+        })
+    });
 
-    match auth_header {
-        Some(token) if token == secret => Ok(next.run(req).await),
+    let secret = state.config.read().await.auth_secret.clone();
+    let token = header_token.or(query_token);
+
+    match token {
+        Some(t) if t == secret => Ok(next.run(req).await),
         _ => Err((StatusCode::UNAUTHORIZED, "Unauthorized")),
     }
 }
