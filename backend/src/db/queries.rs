@@ -61,7 +61,7 @@ pub struct HlsChunk {
     pub created_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CinemetaCache {
     pub imdb_id: String,
     pub media_type: String,
@@ -174,18 +174,26 @@ pub async fn update_job_progress(pool: &SqlitePool, id: &str, phase: &str, pct: 
     Ok(())
 }
 
-pub async fn update_job_checkpoint(pool: &SqlitePool, id: &str, checkpoint: &str) -> AppResult<()> {
+pub async fn update_job_checkpoint(pool: &SqlitePool, id: &str, checkpoint: &str, artifact_id: Option<&str>) -> AppResult<()> {
     if !["download", "transcode"].contains(&checkpoint) {
         return Ok(());
     }
     let new_status = format!("checkpoint_{}", checkpoint);
-    sqlx::query(
-        "UPDATE jobs SET last_checkpoint = ?, status = ?, updated_at = datetime('now') WHERE id = ?"
-    )
-    .bind(checkpoint)
-    .bind(&new_status)
-    .bind(id)
-    .execute(pool).await?;
+    let artifact_col = match checkpoint {
+        "download" => "gh_artifact_id_dl",
+        "transcode" => "gh_artifact_id_tc",
+        _ => unreachable!(),
+    };
+    let sql = format!(
+        "UPDATE jobs SET last_checkpoint = ?, status = ?, {} = ?, updated_at = datetime('now') WHERE id = ?",
+        artifact_col
+    );
+    sqlx::query(&sql)
+        .bind(checkpoint)
+        .bind(&new_status)
+        .bind(artifact_id)
+        .bind(id)
+        .execute(pool).await?;
     Ok(())
 }
 

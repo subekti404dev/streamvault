@@ -1,16 +1,15 @@
 <script lang="ts">
-  let { toasts }: { toasts: Array<{id: number; message: string; type: string}> } = $props();
-
-  function dismiss(id: number) {
-    toasts = toasts.filter(t => t.id !== id);
-  }
+  let { toasts, onDismiss }: {
+    toasts: Array<{id: number; message: string; type: string}>;
+    onDismiss?: (id: number) => void;
+  } = $props();
 
   // Auto-dismiss after 5 seconds
   $effect(() => {
     const last = toasts[toasts.length - 1];
     if (!last) return;
     const timer = setTimeout(() => {
-      dismiss(last.id);
+      onDismiss?.(last.id);
     }, 5000);
     return () => clearTimeout(timer);
   });
@@ -19,7 +18,7 @@
 {#each toasts as toast (toast.id)}
   <div class="toast toast-{toast.type}" role="alert">
     <span>{toast.message}</span>
-    <button class="toast-close" onclick={() => dismiss(toast.id)}>×</button>
+    <button class="toast-close" onclick={() => onDismiss?.(toast.id)}>×</button>
   </div>
 {/each}
 

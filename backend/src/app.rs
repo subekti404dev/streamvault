@@ -54,14 +54,13 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/proxy/hls/:job_id/master.m3u8", get(crate::stremio::proxy::playlist_handler))
         .route("/proxy/hls/:job_id/*filename", get(crate::stremio::proxy::chunk_handler));
 
-    let dashboard_dir = std::env::var("STREAMVAULT_DASHBOARD_DIR")
-        .unwrap_or_else(|_| "dashboard/dist".to_string());
+    let dashboard_dir = state.config.blocking_read().dashboard_dir.clone();
 
     Router::new()
         .merge(auth_router)
         .merge(callback_router)
         .merge(public_router)
-        .fallback_service(tower_http::services::ServeDir::new(&dashboard_dir))
+        .fallback_service(tower_http::services::ServeDir::new(dashboard_dir))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())

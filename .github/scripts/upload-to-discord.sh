@@ -2,7 +2,7 @@
 # upload-to-discord.sh — Upload HLS chunks to Discord channel
 # Usage: upload-to-discord.sh <job_id> <callback_url> <callback_token> <hls_dir>
 
-set -e
+set -uo pipefail
 
 JOB_ID="${1:?Missing job_id}"
 CALLBACK_URL="${2:?Missing callback_url}"
@@ -11,7 +11,6 @@ HLS_DIR="${4:?Missing hls_dir}"
 
 DISCORD_API="https://discord.com/api/v10"
 
-# Wait for Discord token to be provided via env
 if [ -z "$DISCORD_BOT_TOKEN" ]; then
   echo "ERROR: DISCORD_BOT_TOKEN not set" >&2
   exit 1
@@ -29,13 +28,14 @@ callback() {
     -H "Content-Type: application/json" \
     -H "X-Callback-Token: $CALLBACK_TOKEN" \
     -d "$payload" \
-    "${CALLBACK_URL}/api/v1/jobs/${JOB_ID}/${endpoint}" > /dev/null
+    "${CALLBACK_URL}/api/v1/jobs/${JOB_ID}/${endpoint}" > /dev/null 2>&1 || true
 }
 
 # Collect files sorted
 FILES=$(find "$HLS_DIR" -maxdepth 1 \( -name "*.ts" -o -name "*.m3u8" \) | sort)
 TOTAL=$(echo "$FILES" | wc -l | tr -d ' ')
 CURRENT=0
+FAILED_COUNT=0
 
 echo "Uploading $TOTAL files to Discord..."
 
@@ -49,6 +49,7 @@ for file in $FILES; do
   ATTEMPT=0
   MAX_ATTEMPTS=5
   DELAY=2
+  UPLOADED=false
 
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
@@ -57,7 +58,7 @@ for file in $FILES; do
       -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
       -F "file=@$file" \
       -F "content=${JOB_ID}:${BASENAME}" \
-      "${DISCORD_API}/channels/${DISCORD_CHANNEL_ID}/messages" 2>&1)
+      "${DISCORD_API}/channels/${DISCORD_CHANNEL_ID}/messages" 2>&1) || true
 
     # Check for rate limiting
     if echo "$RESPONSE" | jq -e '.retry_after' > /dev/null 2>&1; then
@@ -73,12 +74,13 @@ for file in $FILES; do
     if [ -n "$MSG_ID" ] && [ "$MSG_ID" != "null" ]; then
       FILE_URL=$(echo "$RESPONSE" | jq -r '.attachments[0].url // empty')
 
-      # Report progress
+      # Report progress (non-fatal)
       PCT=$((CURRENT * 100 / TOTAL))
       callback "progress" \
         "{\"phase\":\"upload\",\"progress_pct\":$PCT,\"chunk\":{\"chunk_index\":$CURRENT,\"filename\":\"$BASENAME\",\"discord_url\":\"$FILE_URL\",\"discord_message_id\":\"$MSG_ID\"}}"
 
       echo "  ✓ Uploaded ($PCT%)"
+      UPLOADED=true
       break
     fi
 
@@ -90,15 +92,22 @@ for file in $FILES; do
       sleep "$DELAY"
       DELAY=$((DELAY * 2))
       [ $DELAY -gt 32 ] && DELAY=32
-    else
-      echo "  ✗ Failed to upload $BASENAME after $MAX_ATTEMPTS attempts"
-      callback "progress" \
-        "{\"phase\":\"upload\",\"progress_pct\":$PCT,\"chunk\":{\"chunk_index\":$CURRENT,\"filename\":\"$BASENAME\",\"error\":\"upload_failed\"}}"
     fi
   done
 
-  # Small delay to avoid hitting rate limits
+  if [ "$UPLOADED" != "true" ]; then
+    echo "  ✗ Failed to upload $BASENAME after $MAX_ATTEMPTS attempts"
+    callback "progress" \
+      "{\"phase\":\"upload\",\"progress_pct\":$PCT,\"chunk\":{\"chunk_index\":$CURRENT,\"filename\":\"$BASENAME\",\"error\":\"upload_failed\"}}"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+  fi
+
+  # Small delay between files to avoid rate limits
   sleep 0.05
 done
 
-echo "Upload complete: $CURRENT files uploaded"
+echo "Upload complete: $CURRENT files processed, $FAILED_COUNT failed"
+if [ "$FAILED_COUNT" -gt 0 ]; then
+  echo "WARNING: Some uploads failed" >&2
+  exit 1
+fi

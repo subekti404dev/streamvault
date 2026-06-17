@@ -21,7 +21,9 @@
     toasts = [...toasts, { id: ++toastId, message, type }];
   }
 
-  (window as any).__addToast = addToast;
+  function dismissToast(id: number) {
+    toasts = toasts.filter(t => t.id !== id);
+  }
 
   function navigate(e: Event) {
     const target = e.currentTarget as HTMLAnchorElement;
@@ -125,7 +127,7 @@
   </main>
 {/if}
 
-<Toast {toasts} />
+<Toast {toasts} onDismiss={dismissToast} />
 
 <style>
   .login-screen {

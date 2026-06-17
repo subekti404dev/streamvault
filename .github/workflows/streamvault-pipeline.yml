@@ -80,6 +80,12 @@ jobs:
             --dir=./downloads \
             --summary-interval=10 \
             --console-log-level=error \
+            --connect-timeout=30 \
+            --max-connection-per-server=4 \
+            --split=4 \
+            --max-concurrent-downloads=1 \
+            --retry-wait=5 \
+            --max-tries=5 \
             "${{ inputs.magnet_uri }}" 2>&1 | tee download.log
 
           # Report download complete
