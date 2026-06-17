@@ -1,1 +1,8 @@
-target/\ndashboard/dist/\n.env\n*.db
+target/
+dashboard/dist/
+.env
+*.db
+*.db-wal
+*.db-shm
+node_modules/
+.vite/

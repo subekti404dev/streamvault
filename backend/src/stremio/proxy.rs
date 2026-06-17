@@ -1,18 +1,9 @@
 use axum::{
     extract::{State, Path},
     response::IntoResponse,
-    routing::get,
-    Router,
 };
 use std::sync::Arc;
 use crate::{app::AppState, db::queries, error::AppResult};
-
-pub fn proxy_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
-    Router::new()
-        .route("/hls/{job_id}/master.m3u8", get(playlist_handler))
-        .route("/hls/{job_id}/{*filename}", get(chunk_handler))
-        .with_state(state)
-}
 
 pub async fn playlist_handler(
     State(state): State<Arc<AppState>>,

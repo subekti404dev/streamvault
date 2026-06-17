@@ -1,15 +1,6 @@
-use axum::{Json, extract::State, routing::get, Router};
+use axum::{Json, extract::State};
 use std::sync::Arc;
 use crate::{app::AppState, db::queries, stremio::models::*};
-
-pub fn stremio_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
-    Router::new()
-        .route("/manifest.json", get(manifest_handler))
-        .route("/catalog/{type_}/{catalog_id}.json", get(catalog_handler))
-        .route("/meta/{type_}/{imdb_id}.json", get(meta_handler))
-        .route("/stream/{type_}/{id}.json", get(stream_handler))
-        .with_state(state)
-}
 
 pub async fn manifest_handler(
     State(state): State<Arc<AppState>>,
