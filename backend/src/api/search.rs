@@ -34,6 +34,59 @@ pub struct TorrentEntry {
     pub file_idx: i64,
 }
 
+const LOW_QUALITY_KEYWORDS: &[&str] = &[
+    "cam", "screener", "3d", "ts", "tc", "hdcam", "hdts",
+    "r5", "dvdscr", "hdscr", "telecine", "telesync", "hdtc",
+    "dvdscreener", "bdscr", "ppv", "dvdrip", "vhsrip",
+];
+
+/// Score torrent quality by resolution (higher = better)
+fn quality_score(title: &str) -> i32 {
+    let lower = title.to_lowercase();
+    if lower.contains("2160p") || lower.contains("4k") || lower.contains("uhd") {
+        return 50;
+    }
+    if lower.contains("1080p") || lower.contains("fhd") {
+        return 40;
+    }
+    if lower.contains("720p") || lower.contains("hd") {
+        return 30;
+    }
+    if lower.contains("480p") || lower.contains("sd") {
+        return 20;
+    }
+    // Default: assume SD
+    10
+}
+
+/// Check if title contains low-quality keywords
+fn is_low_quality(title: &str) -> bool {
+    let lower = title.to_lowercase();
+    // Remove spaces for keyword matching ("hd cam" -> "hdcam")
+    let compact: String = lower.chars().filter(|c| !c.is_whitespace()).collect();
+    LOW_QUALITY_KEYWORDS.iter().any(|&kw| compact.contains(kw))
+}
+
+/// Filter, sort by quality, and limit torrents
+fn filter_torrents(mut torrents: Vec<TorrentEntry>, limit: usize) -> Vec<TorrentEntry> {
+    // Step 1: Filter out low quality
+    torrents.retain(|t| {
+        !is_low_quality(&t.title) && !is_low_quality(&t.name)
+    });
+
+    // Step 2: Sort by quality (descending) then by size (descending) as tiebreaker
+    torrents.sort_by(|a, b| {
+        let score_a = quality_score(&a.title);
+        let score_b = quality_score(&b.title);
+        score_b.cmp(&score_a)
+            .then(b.size_bytes.cmp(&a.size_bytes))
+    });
+
+    // Step 3: Limit
+    torrents.truncate(limit);
+    torrents
+}
+
 pub async fn search_handler(
     State(state): State<Arc<AppState>>,
     Json(body): Json<SearchRequest>,
@@ -58,6 +111,9 @@ pub async fn search_handler(
 
     // Search Torrentio
     let torrents = search_torrentio(&state, &body.media_type, &stream_id).await?;
+
+    // Apply quality filter + sort + limit
+    let torrents = filter_torrents(torrents, 5);
 
     Ok(Json(SearchResponse {
         meta: SearchMeta {
