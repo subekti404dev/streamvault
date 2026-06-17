@@ -7,7 +7,7 @@ dev-frontend:
 	cd dashboard && npm run dev
 
 build:
-	docker build -f docker/Dockerfile -t streamvault:dev .
+	docker build -f Dockerfile -t streamvault:dev .
 
 run:
 	docker compose up -d

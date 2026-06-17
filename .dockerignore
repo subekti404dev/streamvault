@@ -1,0 +1,9 @@
+node_modules/
+.git/
+target/
+.env
+*.db
+*.db-wal
+*.db-shm
+.vite/
+dashboard/dist/

@@ -3,7 +3,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY:-yourname/streamvault}:latest
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:

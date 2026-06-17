@@ -6,7 +6,8 @@ on:
     paths:
       - 'backend/**'
       - 'dashboard/**'
-      - 'docker/**'
+      - 'Dockerfile'
+      - '.dockerignore'
       - '.github/workflows/docker-build.yml'
   release:
     types: [published]
