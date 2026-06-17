@@ -21,6 +21,9 @@ pub async fn trigger_pipeline(
         gh_repo
     );
 
+    let discord_token = get_setting_or_env(state, "discord_bot_token").await?.unwrap_or_default();
+    let discord_channel = get_setting_or_env(state, "discord_channel_id").await?.unwrap_or_default();
+
     let body = serde_json::json!({
         "ref": "main",
         "inputs": {
@@ -29,6 +32,8 @@ pub async fn trigger_pipeline(
             "file_idx": job.file_idx.unwrap_or(0).to_string(),
             "callback_url": base_url,
             "callback_token": callback_token,
+            "discord_bot_token": discord_token,
+            "discord_channel_id": discord_channel,
             "skip_download": skip_download.to_string(),
             "skip_transcode": skip_transcode.to_string(),
         }

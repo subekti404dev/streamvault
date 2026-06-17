@@ -24,6 +24,16 @@ on:
         description: 'Auth token for callbacks'
         required: true
         type: string
+      discord_bot_token:
+        description: 'Discord bot token for HLS upload'
+        required: false
+        type: string
+        default: ''
+      discord_channel_id:
+        description: 'Discord channel ID for HLS upload'
+        required: false
+        type: string
+        default: ''
       skip_download:
         description: 'Skip download, restore from checkpoint'
         required: false
@@ -138,6 +148,9 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload to Discord
+        env:
+          DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
+          DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
         run: |
           chmod +x .github/scripts/upload-to-discord.sh
           .github/scripts/upload-to-discord.sh "${{ inputs.job_id }}" \
