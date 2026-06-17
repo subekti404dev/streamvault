@@ -1,0 +1,142 @@
+use axum::{Json, extract::State, routing::get, Router};
+use std::sync::Arc;
+use crate::{app::AppState, db::queries, stremio::models::*};
+
+pub fn stremio_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/manifest.json", get(manifest_handler))
+        .route("/catalog/{type_}/{catalog_id}.json", get(catalog_handler))
+        .route("/meta/{type_}/{imdb_id}.json", get(meta_handler))
+        .route("/stream/{type_}/{id}.json", get(stream_handler))
+        .with_state(state)
+}
+
+pub async fn manifest_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<Manifest> {
+    let _config = state.config.read().await;
+    Json(Manifest {
+        id: "com.streamvault.addon".to_string(),
+        version: "1.0.0".to_string(),
+        name: "StreamVault".to_string(),
+        description: "Personal media library powered by StreamVault".to_string(),
+        resources: vec!["catalog".into(), "meta".into(), "stream".into()],
+        types_: vec!["movie".into(), "series".into()],
+        catalogs: vec![
+            CatalogDescriptor { type_: "movie".into(), id: "streamvault-movies".into(), name: "Movies".into() },
+            CatalogDescriptor { type_: "series".into(), id: "streamvault-series".into(), name: "Series".into() },
+        ],
+        id_prefixes: vec!["tt".into()],
+        behavior_hints: BehaviorHints {
+            configurable: false,
+            configuration_required: false,
+        },
+    })
+}
+
+pub async fn catalog_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path((type_, _catalog_id)): axum::extract::Path<(String, String)>,
+) -> Json<MetaResponse> {
+    let completed = queries::list_jobs_by_status(&state.db, "completed").await
+        .unwrap_or_default();
+
+    let metas: Vec<MetaPreview> = completed.into_iter()
+        .filter(|j| j.media_type == type_)
+        .map(|j| MetaPreview {
+            id: j.imdb_id.clone(),
+            type_: type_.clone(),
+            name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
+            poster: j.poster_url.clone(),
+            year: None,
+        })
+        .collect();
+
+    Json(MetaResponse { metas })
+}
+
+pub async fn meta_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path((type_, imdb_id)): axum::extract::Path<(String, String)>,
+) -> Json<MetaResponse> {
+    let cached = queries::get_cached_meta(&state.db, &imdb_id, &type_).await
+        .unwrap_or_default();
+
+    let metas = match cached {
+        Some(c) => vec![MetaPreview {
+            id: imdb_id,
+            type_: type_,
+            name: c.title.unwrap_or_else(|| "Unknown".to_string()),
+            poster: c.poster_url,
+            year: c.year,
+        }],
+        None => vec![],
+    };
+
+    Json(MetaResponse { metas })
+}
+
+pub async fn stream_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path((_type_, id)): axum::extract::Path<(String, String)>,
+) -> Json<StreamResponse> {
+    let (imdb_id, season, episode) = parse_stream_id(&id);
+
+    // Find completed job matching imdb_id + optional season/episode
+    let job = if let Some(s) = season {
+        if let Some(e) = episode {
+            sqlx::query_as::<_, crate::db::queries::Job>(
+                "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? AND season = ? AND episode = ? LIMIT 1"
+            )
+            .bind(&imdb_id).bind(s).bind(e)
+            .fetch_optional(&state.db).await.unwrap_or(None)
+        } else {
+            sqlx::query_as::<_, crate::db::queries::Job>(
+                "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? AND season = ? LIMIT 1"
+            )
+            .bind(&imdb_id).bind(s)
+            .fetch_optional(&state.db).await.unwrap_or(None)
+        }
+    } else {
+        sqlx::query_as::<_, crate::db::queries::Job>(
+            "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? LIMIT 1"
+        )
+        .bind(&imdb_id)
+        .fetch_optional(&state.db).await.unwrap_or(None)
+    };
+
+    let streams = match job {
+        Some(j) => {
+            let base_url = state.config.read().await.public_base_url.clone();
+            let resolution = j.video_resolution.as_deref().unwrap_or("HD");
+            let desc = if let (Some(s), Some(e)) = (j.season, j.episode) {
+                format!("S{:02}E{:02} • {} • H.264 / AAC", s, e, resolution)
+            } else {
+                format!("{} • H.264 / AAC", resolution)
+            };
+            vec![Stream {
+                name: format!("StreamVault\n{} H.264", resolution),
+                url: format!("{}/proxy/hls/{}/master.m3u8", base_url, j.id),
+                description: Some(desc),
+            }]
+        }
+        None => vec![],
+    };
+
+    Json(StreamResponse { streams })
+}
+
+/// Parse Stremio stream ID into (imdb_id, season?, episode?)
+/// Supports: "tt1234567" (movie) or "tt1234567:1:3" (series)
+fn parse_stream_id(id: &str) -> (String, Option<i64>, Option<i64>) {
+    let parts: Vec<&str> = id.split(':').collect();
+    match parts.len() {
+        3 => {
+            let imdb_id = parts[0].to_string();
+            let season = parts[1].parse().ok();
+            let episode = parts[2].parse().ok();
+            (imdb_id, season, episode)
+        }
+        _ => (id.to_string(), None, None),
+    }
+}
