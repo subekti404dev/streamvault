@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq aria2 jq bc
+          sudo apt-get install -y -qq aria2 jq bc ffmpeg
 
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
