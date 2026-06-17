@@ -11,7 +11,7 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Build backend (Rust)
 # =============================================================================
-FROM rust:1.79-slim AS backend
+FROM rust:latest-slim AS backend
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY backend/Cargo.toml backend/Cargo.lock ./
