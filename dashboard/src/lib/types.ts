@@ -75,6 +75,43 @@ export interface SseEventData {
   data: Record<string, unknown>;
 }
 
+export interface StremioCatalogResponse {
+  metas: StremioMetaItem[];
+}
+
+export interface StremioMetaItem {
+  id: string;
+  type: 'movie' | 'series';
+  name: string;
+  poster?: string | null;
+  year?: string | null;
+  description?: string | null;
+  runtime?: string | null;
+  imdb_id?: string | null;
+}
+
+export interface StremioMetaResponse {
+  meta: StremioMetaDetail;
+}
+
+export interface StremioMetaDetail extends StremioMetaItem {
+  background?: string | null;
+  logo?: string | null;
+  genres?: string[];
+  cast?: string[];
+  director?: string[];
+  videos?: StremioVideo[];
+}
+
+export interface StremioVideo {
+  id: string;
+  title: string;
+  season?: number;
+  episode?: number;
+  thumbnail?: string;
+  released?: string;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;

@@ -1,4 +1,4 @@
-import type { SearchResult, QueueList, JobDetail, AppSettings } from './types';
+import type { SearchResult, QueueList, JobDetail, AppSettings, StremioCatalogResponse, StremioMetaResponse } from './types';
 
 const BASE = '/api/v1';
 
@@ -91,5 +91,29 @@ export const api = {
       headers: headers(),
       body: JSON.stringify(settings),
     });
+  },
+
+  searchCatalog: async (query: string, baseUrl: string): Promise<StremioCatalogResponse> => {
+    const encodedQuery = encodeURIComponent(query);
+    const [movieRes, seriesRes] = await Promise.all([
+      fetch(`${baseUrl}/catalog/movie/search.movie/search=${encodedQuery}.json`),
+      fetch(`${baseUrl}/catalog/series/search.series/search=${encodedQuery}.json`),
+    ]);
+    
+    const [movieData, seriesData] = await Promise.all([
+      movieRes.ok ? movieRes.json() : { metas: [] },
+      seriesRes.ok ? seriesRes.json() : { metas: [] },
+    ]);
+    
+    return {
+      metas: [...(movieData.metas || []), ...(seriesData.metas || [])],
+    };
+  },
+
+  getStremioMeta: async (type: string, id: string, baseUrl: string): Promise<StremioMetaResponse> => {
+    const encodedId = encodeURIComponent(id);
+    const r = await fetch(`${baseUrl}/meta/${type}/${encodedId}.json`);
+    if (!r.ok) throw new Error(`Failed to fetch metadata: ${r.statusText}`);
+    return r.json();
   },
 };

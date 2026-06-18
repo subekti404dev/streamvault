@@ -21,6 +21,7 @@
     { key: 'public_base_url', label: 'Public Base URL', type: 'text', section: 'Stremio' },
     { key: 'stremio_addon_id', label: 'Custom Addon ID', type: 'text', section: 'Stremio' },
     { key: 'stremio_addon_name', label: 'Custom Addon Name', type: 'text', section: 'Stremio' },
+    { key: 'stremio_metadata_url', label: 'Metadata Addon URL', type: 'text', section: 'Stremio', placeholder: 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999' },
   ];
 
   const sections = [...new Set(fields.map(f => f.section))];
@@ -73,6 +74,7 @@
               id={field.key}
               type={field.type}
               value={settings[field.key] ?? ''}
+              placeholder={field.placeholder || ''}
               oninput={(e) => { settings[field.key] = (e.target as HTMLInputElement).value; }}
             />
           </div>
