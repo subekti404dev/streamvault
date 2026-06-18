@@ -210,7 +210,8 @@ async fn try_fetch_chunk(
             .header(header::CONTENT_TYPE, &content_type)
             .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Range")
-            .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Content-Range, Content-Length, Accept-Ranges")
+            .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Content-Range, Content-Length, Accept-Ranges, Content-Type")
+            .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
             .header("Accept-Ranges", "bytes");
 
         if let Some(len) = content_length {
