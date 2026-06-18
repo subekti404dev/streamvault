@@ -6,14 +6,14 @@
 
 ## Summary
 
-Rewrite the ~2,400-line Rust backend (axum, sqlx, tokio) as a ~1,200-line Bun.js HTTP server using Elysia + Drizzle ORM + libsql. Same API surface, same DB schema, same pipeline behavior. Smaller codebase, faster iteration, no compile step.
+Rewrite the ~2,400-line Rust backend (axum, sqlx, tokio) as a ~1,200-line Bun.js TypeScript server using Elysia + Drizzle ORM + libsql, compiled to a single 55 MB standalone binary via `bun build --compile`. Same API surface, same DB schema, same pipeline behavior. Smaller codebase, faster iteration, zero runtime dependencies.
 
 ## Motivation
 
-- **Iteration speed**: Rust compile times kill rapid dashboard/backend co-development
+- **Iteration speed**: Rust compile times kill rapid dashboard/backend co-development — Bun dev reload is instant
 - **Team accessibility**: TypeScript is the dashboard language — single language across stack
-- **Deployment simplicity**: Single `bun run` binary — no multi-stage Docker, no `cargo build --release`
-- **Ecosystem**: Bun's native `fetch()`, `ReadableStream`, `EventEmitter`, Web Crypto, and SQLite driver cover every dependency without native extensions
+- **Deployment**: Single binary, no runtime, no package manager — `COPY streamvault-server /` in a 3-line `scratch` Dockerfile, 55 MB total image
+- **Cold start**: ~50ms (pre-compiled bytecode), vs Rust ~200ms (linker + JIT warmup)
 
 ## Non-Goals
 
@@ -332,17 +332,47 @@ app.onError(({ code, error }) => {
 | Drizzle migration vs raw SQL migration | Generate first migration from existing SQL, verify table schema matches byte-for-byte |
 | Bun VM edge cases with long-lived intervals | 24h soak test with active scheduler |
 
-## Open Questions
+## Deployment
 
-1. **`bun run` or compile to binary?** `bun build --compile` produces a standalone binary (~50 MB) — no Node/Bun needed at runtime. Faster startup, but can't patch without rebuild. Recommendation: `bun run` for dev, binary for Docker.
+### Binary Build
 
-2. **Keep `/api/v1/library` endpoints?** Frontend dashboard has no library page and we already removed `getLibrary`/`deleteLibrary` from the dashboard API client. But Stremio catalog depends on completed jobs. The library endpoints serve the catalog. Keep.
+```bash
+bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile streamvault-server
+```
 
-3. **Drizzle or raw `bun:sqlite`?** `bun:sqlite` is synchronous — blocks the event loop. Drizzle + libsql is async. Recommendation: Drizzle + libsql.
+Single 55 MB binary. No Bun runtime, no Node, no package manager needed at deploy time.
 
-4. **Telegram notifications: keep or drop?** Currently gated behind `notifications_enabled` setting. Low traffic, no external dep beyond HTTP. Recommendation: keep.
+### Docker Image
 
----
+```dockerfile
+FROM scratch
+COPY streamvault-server /streamvault-server
+COPY dashboard/dist /dashboard/dist
+COPY data/ /data
+ENTRYPOINT ["/streamvault-server"]
+```
+
+~55 MB total. Compare: Rust Docker image ~300 MB (`rust:slim` builder + binary).
+
+### Dev Loop
+
+During development and the side-by-side phase, use `bun run --hot`:
+
+```bash
+bun --hot src/index.ts
+```
+
+Instant reload on file change, no build step. Once stabilized, switch to binary for production.
+
+## Decisions
+
+1. **Single binary (`bun build --compile`)**. Chosen for production deployment. Dev still uses `bun run --hot` for instant reload. Binary rebuild only when shipping.
+
+2. **Keep `/api/v1/library` endpoints**. Frontend dashboard has no library page, but Stremio catalog depends on completed jobs. No change needed.
+
+3. **Drizzle ORM + libsql**. `bun:sqlite` is synchronous and blocks the event loop. Drizzle + libsql gives async queries with the same SQLite database.
+
+4. **Keep Telegram notifications**. Gated behind `notifications_enabled` setting — zero overhead when off. Pure HTTP, no extra deps.
 
 ## Acceptance Criteria
 
@@ -354,6 +384,8 @@ app.onError(({ code, error }) => {
 - [ ] Auth middleware rejects invalid tokens (Bearer + query)
 - [ ] Callback auth accepts correct `X-Callback-Token`
 - [ ] Stale job recovery on restart marks in-progress jobs as failed
+- [ ] `bun build --compile` produces single binary
+- [ ] Binary runs in `scratch` Docker image, port 8080
 - [ ] Build produces ~1,200 lines of TypeScript (not 2,400)
 - [ ] TypeScript type-checks with `tsc --noEmit` zero errors
-- [ ] Dashboard integration test (smoke test) passes
+- [ ] Dashboard integration smoke test passes
