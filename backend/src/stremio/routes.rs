@@ -86,20 +86,29 @@ pub async fn stream_handler(
                 "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? AND season = ? AND episode = ? LIMIT 1"
             )
             .bind(&imdb_id).bind(s).bind(e)
-            .fetch_optional(&state.db).await.unwrap_or(None)
+            .fetch_optional(&state.db).await
+            .map_err(|e| tracing::error!("stream_handler query error: {}", e))
+            .ok()
+            .flatten()
         } else {
             sqlx::query_as::<_, crate::db::queries::Job>(
                 "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? AND season = ? LIMIT 1"
             )
             .bind(&imdb_id).bind(s)
-            .fetch_optional(&state.db).await.unwrap_or(None)
+            .fetch_optional(&state.db).await
+            .map_err(|e| tracing::error!("stream_handler query error: {}", e))
+            .ok()
+            .flatten()
         }
     } else {
         sqlx::query_as::<_, crate::db::queries::Job>(
             "SELECT * FROM jobs WHERE status = 'completed' AND imdb_id = ? LIMIT 1"
         )
         .bind(&imdb_id)
-        .fetch_optional(&state.db).await.unwrap_or(None)
+        .fetch_optional(&state.db).await
+        .map_err(|e| tracing::error!("stream_handler query error: {}", e))
+        .ok()
+        .flatten()
     };
 
     tracing::info!("stream_handler: found job: {:?}", job.as_ref().map(|j| &j.id));
