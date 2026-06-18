@@ -1,7 +1,7 @@
 name: StreamVault Pipeline
 
 # This workflow downloads torrents with Rust (librqbit), transcodes to HLS,
-# and uploads chunks to Discord in parallel with transcode.
+# then uploads chunks to Discord sequentially.
 #
 # Key inputs:
 #   - file_idx: File index within torrent (0-based)
@@ -188,22 +188,15 @@ jobs:
           name: checkpoint-tc-${{ inputs.job_id }}
           path: ./hls/
 
-      - name: Transcode to HLS + Upload parallel
+      - name: Transcode to HLS
         if: inputs.skip_transcode != 'true'
-        env:
-          DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
-          DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
         run: |
           INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
 
           HLS_DIR="./hls"
           LOG_FILE="/tmp/ffmpeg_transcode.log"
-          CHUNK_MAP="/tmp/chunk_map.txt"
-          STOP_FILE="/tmp/transcode_stop"
           mkdir -p "$HLS_DIR"
-          rm -f "$STOP_FILE" "$CHUNK_MAP"
-          touch "$CHUNK_MAP"
 
           # Determine target resolution
           if [ "$SOURCE_HEIGHT" -ge 2160 ]; then
@@ -240,20 +233,6 @@ jobs:
           FFMPEG_PID=$!
           echo "ffmpeg PID=$FFMPEG_PID"
 
-          # Start upload watcher in background (appends new chunks as they appear)
-          pipeline-upload \
-            --append \
-            --hls-dir "$HLS_DIR" \
-            --discord-token "$DISCORD_BOT_TOKEN" \
-            --discord-channel "$DISCORD_CHANNEL_ID" \
-            --callback-base "$CALLBACK_URL" \
-            --job-id "${{ inputs.job_id }}" \
-            --callback-token "$CALLBACK_TOKEN" \
-            --chunk-map "$CHUNK_MAP" \
-            --playlist master.m3u8 &
-          UPLOAD_PID=$!
-          echo "upload watcher PID=$UPLOAD_PID"
-
           # Monitor ffmpeg progress
           LAST_REPORT=0
           while kill -0 "$FFMPEG_PID" 2>/dev/null; do
@@ -286,35 +265,8 @@ jobs:
             echo "Transcode failed"
             echo "--- last 20 log lines ---"
             tail -20 "$LOG_FILE"
-            kill "$UPLOAD_PID" 2>/dev/null || true
             exit 1
           fi
-
-          # Wait for upload watcher to finish current batch, then stop
-          sleep 5
-          kill "$UPLOAD_PID" 2>/dev/null || true
-          wait "$UPLOAD_PID" 2>/dev/null || true
-
-          # Final upload pass for any remaining chunks
-          pipeline-upload \
-            --append \
-            --hls-dir "$HLS_DIR" \
-            --discord-token "$DISCORD_BOT_TOKEN" \
-            --discord-channel "$DISCORD_CHANNEL_ID" \
-            --callback-base "$CALLBACK_URL" \
-            --job-id "${{ inputs.job_id }}" \
-            --callback-token "$CALLBACK_TOKEN" \
-            --chunk-map "$CHUNK_MAP" \
-            --playlist master.m3u8
-
-          # Reconcile durations from final playlist
-          pipeline-upload \
-            --reconcile-durations \
-            --hls-dir "$HLS_DIR" \
-            --discord-token "$DISCORD_BOT_TOKEN" \
-            --discord-channel "$DISCORD_CHANNEL_ID" \
-            --chunk-map "$CHUNK_MAP" \
-            --playlist master.m3u8
 
           TOTAL_CHUNKS=$(ls "${HLS_DIR}"/seg_*.ts 2>/dev/null | wc -l)
           echo "Transcode complete: $TOTAL_CHUNKS chunks"
@@ -330,6 +282,29 @@ jobs:
           path: ./hls/
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Upload to Discord
+        env:
+          DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
+          DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
+        run: |
+          pipeline-upload \
+            --hls-dir ./hls \
+            --discord-token "$DISCORD_BOT_TOKEN" \
+            --discord-channel "$DISCORD_CHANNEL_ID" \
+            --callback-base "$CALLBACK_URL" \
+            --job-id "${{ inputs.job_id }}" \
+            --callback-token "$CALLBACK_TOKEN" \
+            --chunk-map /tmp/chunk_map.txt \
+            --playlist master.m3u8
+
+          pipeline-upload \
+            --reconcile-durations \
+            --hls-dir ./hls \
+            --discord-token "$DISCORD_BOT_TOKEN" \
+            --discord-channel "$DISCORD_CHANNEL_ID" \
+            --chunk-map /tmp/chunk_map.txt \
+            --playlist master.m3u8
 
       - name: Report completion
         if: success()
