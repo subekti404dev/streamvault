@@ -70,9 +70,18 @@ callback "progress" '{"phase":"download","progress_pct":0}'
 
 LAST_PCT=-1
 DONE=false
+STALL_COUNT=0
+MAX_STALL=360          # 30 min no progress → fail (360 × 5s = 1800s)
 
 while ! $DONE; do
   sleep 5
+
+  # Check daemon is still alive
+  if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+    echo "transmission-daemon died unexpectedly"
+    callback "failed" '{"error_message":"transmission-daemon crashed"}'
+    exit 1
+  fi
 
   STATS=$(transmission-remote localhost:9092 --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+') || true
   if [ -z "$STATS" ]; then
@@ -82,12 +91,25 @@ while ! $DONE; do
   # Parse Done column (2nd column)
   DONE_PCT=$(echo "$STATS" | awk '{print $2}' | sed 's/%//')
   STATUS=$(echo "$STATS" | awk '{for(i=1;i<=NF;i++) if($i~/^(Downloading|Seeding|Stopped|Finished|Idle)$/) print $i}')
+  PEERS=$(echo "$STATS" | awk '{print $NF}' | head -1)
+
+  # Stall detection — if progress didn't change, count it
+  if [ "$DONE_PCT" = "$LAST_PCT" ] || [ -z "$DONE_PCT" ]; then
+    STALL_COUNT=$((STALL_COUNT + 1))
+    if [ "$STALL_COUNT" -ge "$MAX_STALL" ]; then
+      echo "Download stalled after 30 minutes with no progress (peers: $PEERS)"
+      callback "failed" "{\"error_message\":\"Download stalled — no progress for 30 min (peers: $PEERS)\"}"
+      exit 1
+    fi
+  else
+    STALL_COUNT=0
+  fi
 
   if [ "$DONE_PCT" != "$LAST_PCT" ] && [ -n "$DONE_PCT" ]; then
     LAST_PCT=$DONE_PCT
     if [ "$DONE_PCT" -le 100 ]; then
       callback "progress" "{\"phase\":\"download\",\"progress_pct\":$DONE_PCT}"
-      echo "Download: ${DONE_PCT}% — $STATUS"
+      echo "Download: ${DONE_PCT}% — $STATUS (peers: $PEERS)"
     fi
   fi
 
