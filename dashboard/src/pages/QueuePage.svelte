@@ -123,7 +123,10 @@
           </div>
           <div class="job-footer">
             <span class="text-muted">Added {job.created_at ? new Date(job.created_at).toLocaleString() : ''}</span>
-            <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
+            <div style="display:flex; gap:0.5rem;">
+              <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
+              <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Cancel</button>
+            </div>
           </div>
         </div>
       {/each}
