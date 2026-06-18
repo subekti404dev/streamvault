@@ -1,12 +1,14 @@
 name: StreamVault Pipeline
 
-# This workflow downloads, transcodes, and uploads video content.
+# This workflow downloads torrents with Rust (librqbit), transcodes to HLS,
+# and uploads chunks to Discord in parallel with transcode.
+#
 # Key inputs:
-#   - file_idx: File index within torrent (0-based from Torrentio)
+#   - file_idx: File index within torrent (0-based)
 #   - torrent_name: Exact filename from Torrentio behaviorHints.filename
 #
 # File detection strategy:
-#   1. Exact match by torrent_name (behaviorHints.filename)
+#   1. Exact match by torrent_name
 #   2. Partial match by base filename
 #   3. Fallback to any video file by extension
 
@@ -61,6 +63,7 @@ on:
         default: 'false'
 
 env:
+  MAX_IDLE_SECONDS: '900'
   CALLBACK_URL: ${{ inputs.callback_url }}
   CALLBACK_TOKEN: ${{ inputs.callback_token }}
   JOB_ID: ${{ inputs.job_id }}
@@ -76,7 +79,21 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq aria2 jq bc ffmpeg
+          sudo apt-get install -y -qq jq bc ffmpeg
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Build pipeline binaries
+        run: |
+          cargo build --release --bin pipeline-download --bin pipeline-upload
+          cp target/release/pipeline-download /usr/local/bin/
+          cp target/release/pipeline-upload /usr/local/bin/
+        working-directory: backend
 
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
@@ -88,15 +105,14 @@ jobs:
       - name: Download torrent
         if: inputs.skip_download != 'true'
         run: |
-          chmod +x .github/scripts/*.sh
-          .github/scripts/monitor-download.sh \
+          pipeline-download \
             "${{ inputs.job_id }}" \
             "${{ inputs.callback_url }}" \
             "${{ inputs.callback_token }}" \
             "${{ inputs.magnet_uri }}" \
             "$(( ${{ inputs.file_idx }} + 1 ))"
 
-          # Report download checkpoint
+          chmod +x .github/scripts/*.sh
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
             '{"checkpoint":"download","artifact_id":"checkpoint-dl-${{ inputs.job_id }}"}'
 
@@ -112,71 +128,56 @@ jobs:
       - name: Detect source resolution
         id: detect
         run: |
-          # Use exact filename from Torrentio behaviorHints.filename
           FILENAME="${{ inputs.torrent_name }}"
           INPUT_FILE=""
-          
+
           if [ -n "$FILENAME" ]; then
-            # Try exact match first
             INPUT_FILE=$(find ./downloads -type f -name "$FILENAME" \
-              -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+              -not -name "*.log" -not -name "*.torrent" \
               | head -1)
-            
+
             if [ -n "$INPUT_FILE" ]; then
               echo "✓ Found exact file: $INPUT_FILE"
             else
-              # Fallback: try partial match (in case filename has special chars)
               BASE_NAME=$(basename "$FILENAME" | sed 's/\.[^.]*$//')
               INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
-                -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+                -not -name "*.log" -not -name "*.torrent" \
                 | head -1)
               if [ -n "$INPUT_FILE" ]; then
                 echo "✓ Found file by partial match: $INPUT_FILE"
               fi
             fi
           fi
-          
-          # Last resort: find any video file
+
           if [ -z "$INPUT_FILE" ]; then
             INPUT_FILE=$(find ./downloads -type f \
               \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
-              -not -name "*.log" -not -name "*.torrent" -not -name "*.aria2" \
+              -not -name "*.log" -not -name "*.torrent" \
               | head -1)
             if [ -n "$INPUT_FILE" ]; then
               echo "⚠ Fallback: found video by extension: $INPUT_FILE"
             fi
           fi
-          
+
           if [ -z "$INPUT_FILE" ]; then
             echo "❌ Error: No video file found in ./downloads"
             ls -la ./downloads/
             exit 1
           fi
-          
+
           echo "input_file=$INPUT_FILE" >> "$GITHUB_OUTPUT"
           echo "Input file: $INPUT_FILE"
           echo "File size: $(du -h "$INPUT_FILE" | cut -f1)"
-          
-          # Validate file exists and show details
-          if [ ! -f "$INPUT_FILE" ]; then
-            echo "❌ ERROR: File does not exist: $INPUT_FILE"
-            echo "Contents of ./downloads:"
-            find ./downloads -type f | head -20
-            exit 1
-          fi
-          
-          echo "File type: $(file -b "$INPUT_FILE" | head -c 100)"
-          
-          # Extract video height using ffprobe
+
           SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
             -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
-          
+
           if [ "$SOURCE_HEIGHT" = "0" ] || [ -z "$SOURCE_HEIGHT" ]; then
             echo "⚠ WARNING: Could not determine video height, trying alternative method"
             SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
               -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$INPUT_FILE" 2>/dev/null || echo "0")
           fi
-          
+
           echo "source_height=$SOURCE_HEIGHT" >> "$GITHUB_OUTPUT"
           echo "Source height: ${SOURCE_HEIGHT}p"
 
@@ -187,21 +188,137 @@ jobs:
           name: checkpoint-tc-${{ inputs.job_id }}
           path: ./hls/
 
-      - name: Transcode to HLS
+      - name: Transcode to HLS + Upload parallel
         if: inputs.skip_transcode != 'true'
+        env:
+          DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
+          DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
         run: |
           INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
-          
-          chmod +x .github/scripts/*.sh
-          .github/scripts/monitor-transcode.sh \
-            "${{ inputs.job_id }}" \
-            "${{ inputs.callback_url }}" \
-            "${{ inputs.callback_token }}" \
-            "$INPUT_FILE" \
-            "$SOURCE_HEIGHT"
 
-          # Report transcode checkpoint
+          HLS_DIR="./hls"
+          LOG_FILE="/tmp/ffmpeg_transcode.log"
+          CHUNK_MAP="/tmp/chunk_map.txt"
+          STOP_FILE="/tmp/transcode_stop"
+          mkdir -p "$HLS_DIR"
+          rm -f "$STOP_FILE" "$CHUNK_MAP"
+          touch "$CHUNK_MAP"
+
+          # Determine target resolution
+          if [ "$SOURCE_HEIGHT" -ge 2160 ]; then
+            TARGET_HEIGHT=1080
+          elif [ "$SOURCE_HEIGHT" -ge 1080 ]; then
+            TARGET_HEIGHT=720
+          else
+            TARGET_HEIGHT=480
+          fi
+          echo "Target: ${TARGET_HEIGHT}p"
+
+          # Get total duration
+          TOTAL_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$INPUT_FILE" 2>/dev/null | cut -d. -f1)
+          TOTAL_DURATION=${TOTAL_DURATION:-600}
+          echo "Duration: ${TOTAL_DURATION}s"
+
+          # Initial progress
+          chmod +x .github/scripts/*.sh
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
+            '{"phase":"transcode","progress_pct":0}'
+
+          # Start ffmpeg in background
+          rm -f "$LOG_FILE"
+          ffmpeg -y \
+            -i "$INPUT_FILE" \
+            -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 5000k \
+            -c:a aac -b:a 128k \
+            -vf "scale=-2:$TARGET_HEIGHT" \
+            -force_key_frames "expr:eq(mod(n,72),0)" \
+            -hls_time 6 \
+            -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
+            -hls_playlist_type vod \
+            "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
+          FFMPEG_PID=$!
+          echo "ffmpeg PID=$FFMPEG_PID"
+
+          # Start upload watcher in background (appends new chunks as they appear)
+          pipeline-upload \
+            --append \
+            --hls-dir "$HLS_DIR" \
+            --discord-token "$DISCORD_BOT_TOKEN" \
+            --discord-channel "$DISCORD_CHANNEL_ID" \
+            --callback-base "$CALLBACK_URL" \
+            --job-id "${{ inputs.job_id }}" \
+            --callback-token "$CALLBACK_TOKEN" \
+            --chunk-map "$CHUNK_MAP" \
+            --playlist master.m3u8 &
+          UPLOAD_PID=$!
+          echo "upload watcher PID=$UPLOAD_PID"
+
+          # Monitor ffmpeg progress
+          LAST_REPORT=0
+          while kill -0 "$FFMPEG_PID" 2>/dev/null; do
+            sleep 5
+            LAST_LINE=$(tail -1 "$LOG_FILE" 2>/dev/null || true)
+            if echo "$LAST_LINE" | grep -q "time="; then
+              TIMESTAMP=$(echo "$LAST_LINE" | grep -oP 'time=\K[\d:.]+' || true)
+              if [ -n "$TIMESTAMP" ]; then
+                SECONDS_ELAPSED=$(echo "$TIMESTAMP" | awk -F: '{ print ($1 * 3600) + ($2 * 60) + $3 }')
+                PCT=$(echo "scale=1; $SECONDS_ELAPSED * 100 / $TOTAL_DURATION" | bc 2>/dev/null || echo "0")
+                PCT=$(echo "$PCT" | awk '{if($1>99)$1=99; if($1<1)$1=1; print $1}')
+                PCT_INT=${PCT%.*}
+
+                NOW=$(date +%s)
+                if [ $(( NOW - LAST_REPORT )) -ge 10 ]; then
+                  .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
+                    "{\"phase\":\"transcode\",\"progress_pct\":$PCT_INT}"
+                  LAST_REPORT=$NOW
+                  echo "Transcode: ${PCT}% (${TIMESTAMP})"
+                fi
+              fi
+            fi
+          done
+
+          wait "$FFMPEG_PID"
+          FFMPEG_EXIT=$?
+          echo "ffmpeg exit: $FFMPEG_EXIT"
+
+          if [ $FFMPEG_EXIT -ne 0 ]; then
+            echo "Transcode failed"
+            echo "--- last 20 log lines ---"
+            tail -20 "$LOG_FILE"
+            kill "$UPLOAD_PID" 2>/dev/null || true
+            exit 1
+          fi
+
+          # Wait for upload watcher to finish current batch, then stop
+          sleep 5
+          kill "$UPLOAD_PID" 2>/dev/null || true
+          wait "$UPLOAD_PID" 2>/dev/null || true
+
+          # Final upload pass for any remaining chunks
+          pipeline-upload \
+            --append \
+            --hls-dir "$HLS_DIR" \
+            --discord-token "$DISCORD_BOT_TOKEN" \
+            --discord-channel "$DISCORD_CHANNEL_ID" \
+            --callback-base "$CALLBACK_URL" \
+            --job-id "${{ inputs.job_id }}" \
+            --callback-token "$CALLBACK_TOKEN" \
+            --chunk-map "$CHUNK_MAP" \
+            --playlist master.m3u8
+
+          # Reconcile durations from final playlist
+          pipeline-upload \
+            --reconcile-durations \
+            --hls-dir "$HLS_DIR" \
+            --discord-token "$DISCORD_BOT_TOKEN" \
+            --discord-channel "$DISCORD_CHANNEL_ID" \
+            --chunk-map "$CHUNK_MAP" \
+            --playlist master.m3u8
+
+          TOTAL_CHUNKS=$(ls "${HLS_DIR}"/seg_*.ts 2>/dev/null | wc -l)
+          echo "Transcode complete: $TOTAL_CHUNKS chunks"
+
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
             '{"checkpoint":"transcode","artifact_id":"checkpoint-tc-${{ inputs.job_id }}"}'
 
@@ -213,15 +330,6 @@ jobs:
           path: ./hls/
           retention-days: 7
           if-no-files-found: warn
-
-      - name: Upload to Discord
-        env:
-          DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
-          DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
-        run: |
-          chmod +x .github/scripts/upload-to-discord.sh
-          .github/scripts/upload-to-discord.sh "${{ inputs.job_id }}" \
-            "${{ env.CALLBACK_URL }}" "${{ env.CALLBACK_TOKEN }}" ./hls
 
       - name: Report completion
         if: success()
@@ -235,6 +343,7 @@ jobs:
             RESOLUTION="${SOURCE_HEIGHT}p"
           fi
 
+          chmod +x .github/scripts/*.sh
           .github/scripts/callback.sh "${{ inputs.job_id }}" "complete" \
             "{\"video_resolution\":\"$RESOLUTION\",\"duration_seconds\":$DURATION}"
           echo "Pipeline completed successfully for job ${{ inputs.job_id }}"
@@ -242,5 +351,6 @@ jobs:
       - name: Report failure
         if: failure()
         run: |
+          chmod +x .github/scripts/*.sh
           .github/scripts/callback.sh "${{ inputs.job_id }}" "failed" \
             "{\"error_message\":\"Pipeline failed at step: ${{ job.status }}\"}"
