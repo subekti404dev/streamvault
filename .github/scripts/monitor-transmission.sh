@@ -53,7 +53,11 @@ done
 # Cleanup on exit
 cleanup() {
   transmission-remote localhost:9092 --exit > /dev/null 2>&1 || true
-  kill $DAEMON_PID 2>/dev/null || true
+  # Wait for daemon to actually stop before removing config
+  if [ -n "$DAEMON_PID" ]; then
+    wait "$DAEMON_PID" 2>/dev/null || true
+    kill "$DAEMON_PID" 2>/dev/null || true
+  fi
   rm -rf "$CONFIG_DIR"
 }
 trap cleanup INT TERM EXIT
