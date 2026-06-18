@@ -70,6 +70,7 @@ pub async fn chunk_handler(
     let resp = state.http.get(&url).send().await
         .map_err(|_| crate::error::AppError::Internal("Failed to fetch chunk from Discord".into()))?;
 
+    let status = resp.status();
     let bytes = resp.bytes().await
         .map_err(|_| crate::error::AppError::Internal("Failed to read chunk data".into()))?;
 
@@ -82,6 +83,7 @@ pub async fn chunk_handler(
     };
 
     Ok((
+        status,
         [
             (axum::http::header::CONTENT_TYPE, content_type),
             (axum::http::header::CACHE_CONTROL, "public, max-age=31536000"),
