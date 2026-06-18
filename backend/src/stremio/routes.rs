@@ -77,6 +77,7 @@ pub async fn stream_handler(
     axum::extract::Path((_type_, id)): axum::extract::Path<(String, String)>,
 ) -> Json<StreamResponse> {
     let (imdb_id, season, episode) = parse_stream_id(&id);
+    tracing::info!("stream_handler: imdb_id={}, season={:?}, episode={:?}", imdb_id, season, episode);
 
     // Find completed job matching imdb_id + optional season/episode
     let job = if let Some(s) = season {
@@ -100,6 +101,8 @@ pub async fn stream_handler(
         .bind(&imdb_id)
         .fetch_optional(&state.db).await.unwrap_or(None)
     };
+
+    tracing::info!("stream_handler: found job: {:?}", job.as_ref().map(|j| &j.id));
 
     let streams = match job {
         Some(j) => {
