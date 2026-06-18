@@ -107,4 +107,13 @@ export const api = {
     if (!r.ok) throw new Error(`Failed to fetch metadata: ${r.statusText}`);
     return r.json();
   },
+
+  inspectTorrent: async (infohash: string): Promise<{ name: string; files: { index: number; name: string; size_bytes: number }[] }> => {
+    const r = await fetch(`${BASE}/torrent/inspect`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ infohash }),
+    });
+    return handleResponse(r);
+  },
 };

@@ -22,7 +22,7 @@ pub struct AppState {
 pub fn create_router(state: Arc<AppState>, dashboard_dir: PathBuf) -> Router {
     let auth_router = Router::new()
         .route("/api/v1/search", post(crate::api::search::search_handler))
-        .route("/api/v1/queue", post(crate::api::queue::create_job))
+        .route("/api/v1/torrent/inspect", post(crate::api::torrent::inspect_torrent))
         .route("/api/v1/queue", get(crate::api::queue::list_jobs))
         .route("/api/v1/queue/:id", get(crate::api::queue::get_job))
         .route("/api/v1/queue/:id/retry", post(crate::api::queue::retry_job))

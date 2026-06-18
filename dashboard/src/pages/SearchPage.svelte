@@ -18,13 +18,15 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let catalogResults = $state<StremioMetaItem[]>([]);
   let selectedItem = $state<StremioMetaItem | null>(null);
   let showImdbSearch = $state(false);
-  let showCustomMagnet = $state(false);
   let metadataBaseUrl = $state('');
   let customMagnet = $state('');
   let customTitle = $state('');
-  let customImdbId = $state('');
-  let customMediaType = $state('movie');
   let customAdding = $state(false);
+  let sourceTab = $state<'torrentio' | 'custom'>('torrentio');
+  let inspecting = $state(false);
+  let inspectedFiles = $state<{index: number; name: string; size_bytes: number}[]>([]);
+  let selectedFileIdx = $state(0);
+  let torrentName = $state('');
 
   onMount(async () => {
     try {
@@ -141,32 +143,53 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     }
   }
 
+  async function inspectMagnet() {
+    const parsed = parseMagnet(customMagnet);
+    if (!parsed.infohash) {
+      addToast('Invalid magnet URI', 'error');
+      return;
+    }
+    inspecting = true;
+    inspectedFiles = [];
+    selectedFileIdx = 0;
+    try {
+      const resp = await api.inspectTorrent(parsed.infohash);
+      inspectedFiles = resp.files;
+      torrentName = resp.name;
+      if (!customTitle) customTitle = resp.name;
+    } catch (e: any) {
+      addToast(`Inspect failed: ${e.message}`, 'error');
+    } finally {
+      inspecting = false;
+    }
+  }
+
   async function addCustomToQueue() {
     const parsed = parseMagnet(customMagnet);
     if (!parsed.infohash) {
-      addToast('Invalid magnet URI — could not extract infohash', 'error');
+      addToast('Invalid magnet URI', 'error');
       return;
     }
     customAdding = true;
     try {
-      const title = customTitle.trim() || parsed.name || `Custom (${parsed.infohash.slice(0, 8)})`;
+      const title = customTitle.trim() || result?.meta.title || selectedItem?.name || parsed.name || `Custom (${parsed.infohash.slice(0, 8)})`;
       await api.addToQueue({
-        imdb_id: customImdbId.trim() || 'custom',
-        media_type: customMediaType,
-        season: null,
-        episode: null,
+        imdb_id: imdbId.trim() || 'custom',
+        media_type: mediaType,
+        season: mediaType === 'series' ? season : null,
+        episode: mediaType === 'series' ? episode : null,
         title: title,
-        poster_url: null,
+        poster_url: result?.meta.poster || selectedItem?.poster || null,
         magnet_uri: customMagnet.trim(),
         infohash: parsed.infohash,
         torrent_name: title,
-        file_idx: 0,
-        file_size_bytes: 0,
+        file_idx: selectedFileIdx,
+        file_size_bytes: inspectedFiles[selectedFileIdx]?.size_bytes || 0,
       });
       addToast(`Added to queue: ${title}`, 'success');
       customMagnet = '';
-      customTitle = '';
-      customImdbId = '';
+      inspectedFiles = [];
+      selectedFileIdx = 0;
     } catch (e: any) {
       addToast(`Failed: ${e.message}`, 'error');
     } finally {
@@ -242,61 +265,6 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     {/if}
   </div>
 
-  <div class="glass-card search-form" style="margin-top:1rem;">
-    <div class="advanced-toggle">
-      <button class="btn-link" onclick={() => showCustomMagnet = !showCustomMagnet}>
-        {showCustomMagnet ? 'Hide' : 'Show'} Custom Magnet URI
-      </button>
-    </div>
-
-    {#if showCustomMagnet}
-      <div class="imdb-search">
-        <div class="form-group">
-          <label for="magnet">Magnet URI</label>
-          <textarea
-            id="magnet"
-            bind:value={customMagnet}
-            placeholder="magnet:?xt=urn:btih:..."
-            rows="3"
-            oninput={handleMagnetInput}
-            style="font-family:monospace; font-size:0.8rem; resize:vertical;"
-          ></textarea>
-        </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label for="custom-title">Title</label>
-            <input
-              id="custom-title"
-              type="text"
-              bind:value={customTitle}
-              placeholder="Auto-filled from magnet URI"
-            />
-          </div>
-          <div class="form-group">
-            <label for="custom-imdb">IMDB ID (optional)</label>
-            <input
-              id="custom-imdb"
-              type="text"
-              bind:value={customImdbId}
-              placeholder="e.g. tt0903747"
-            />
-          </div>
-        </div>
-        {#if parseMagnet(customMagnet).infohash}
-          <p class="text-muted" style="margin-bottom:0.75rem; font-size:0.8rem;">
-            Infohash: <code>{parseMagnet(customMagnet).infohash}</code>
-          </p>
-        {/if}
-        <button
-          class="btn btn-primary"
-          onclick={addCustomToQueue}
-          disabled={customAdding || !customMagnet.trim() || !parseMagnet(customMagnet).infohash}
-        >
-          {customAdding ? 'Adding...' : 'Add to Queue'}
-        </button>
-      </div>
-    {/if}
-  </div>
 
   {#if error}
     <div class="glass-card" style="margin-top:1rem; border-color: rgba(239,68,68,0.3);">
@@ -390,27 +358,107 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       </div>
     </div>
 
-    {#if result.torrents.length === 0}
-      <div class="glass-card" style="margin-top:1rem">
-        <p class="text-muted">No torrents found for this title.</p>
-      </div>
-    {:else}
-      <h3 style="margin-top:1.5rem; margin-bottom:0.75rem; color:var(--text-secondary)">
-        {result.torrents.length} torrent source(s)
-      </h3>
-      <div class="torrent-list">
-        {#each result.torrents as torrent}
-          <div class="glass-card torrent-item">
-            <div class="torrent-info">
-              <span class="torrent-name">{torrent.name}</span>
-              <span class="torrent-title">{torrent.title}</span>
-              <span class="torrent-size">{formatBytes(torrent.size_bytes)}</span>
+    <!-- Source tabs -->
+    <div class="source-tabs" style="margin-top:1.5rem;">
+      <button
+        class="tab-btn {sourceTab === 'torrentio' ? 'active' : ''}"
+        onclick={() => sourceTab = 'torrentio'}
+      >
+        Torrentio ({result.torrents.length})
+      </button>
+      <button
+        class="tab-btn {sourceTab === 'custom' ? 'active' : ''}"
+        onclick={() => sourceTab = 'custom'}
+      >
+        Custom Magnet
+      </button>
+    </div>
+
+    {#if sourceTab === 'torrentio'}
+      {#if result.torrents.length === 0}
+        <div class="glass-card" style="margin-top:1rem">
+          <p class="text-muted">No torrents found for this title.</p>
+        </div>
+      {:else}
+        <h3 style="margin-top:1rem; margin-bottom:0.75rem; color:var(--text-secondary)">
+          {result.torrents.length} torrent source(s)
+        </h3>
+        <div class="torrent-list">
+          {#each result.torrents as torrent}
+            <div class="glass-card torrent-item">
+              <div class="torrent-info">
+                <span class="torrent-name">{torrent.name}</span>
+                <span class="torrent-title">{torrent.title}</span>
+                <span class="torrent-size">{formatBytes(torrent.size_bytes)}</span>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
+                Add to Queue
+              </button>
             </div>
-            <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
-              Add to Queue
-            </button>
+          {/each}
+        </div>
+      {/if}
+    {:else}
+      <!-- Custom Magnet tab -->
+      <div class="glass-card" style="margin-top:1rem; padding:1.5rem;">
+        <div class="form-group">
+          <label for="custom-magnet">Magnet URI</label>
+          <textarea
+            id="custom-magnet"
+            bind:value={customMagnet}
+            placeholder="magnet:?xt=urn:btih:..."
+            rows="3"
+            oninput={handleMagnetInput}
+            style="font-family:monospace; font-size:0.8rem; resize:vertical;"
+          ></textarea>
+        </div>
+        {#if parseMagnet(customMagnet).infohash}
+          <p class="text-muted" style="margin-bottom:0.75rem; font-size:0.8rem;">
+            Infohash: <code>{parseMagnet(customMagnet).infohash}</code>
+          </p>
+          <div class="form-group">
+            <label for="custom-title-2">Title (optional)</label>
+            <input id="custom-title-2" type="text" bind:value={customTitle} placeholder={result.meta.title} />
           </div>
-        {/each}
+          <div style="display:flex; gap:0.75rem; margin-bottom:1rem;">
+            <button class="btn btn-secondary" onclick={inspectMagnet} disabled={inspecting}>
+              {inspecting ? 'Inspecting...' : 'Inspect Files'}
+            </button>
+            {#if inspectedFiles.length > 0}
+              <button
+                class="btn btn-primary"
+                onclick={addCustomToQueue}
+                disabled={customAdding}
+              >
+                {customAdding ? 'Adding...' : 'Add to Queue'}
+              </button>
+            {/if}
+          </div>
+        {:else}
+          <p class="text-muted" style="font-size:0.8rem;">Paste a valid magnet URI to inspect files</p>
+        {/if}
+
+        {#if inspectedFiles.length > 0}
+          <h4 style="margin-bottom:0.5rem; color:var(--text-secondary)">
+            {inspectedFiles.length} file(s) in {torrentName}
+          </h4>
+          <div class="file-list">
+            {#each inspectedFiles as file}
+              <label class="file-option {selectedFileIdx === file.index ? 'selected' : ''}">
+                <input
+                  type="radio"
+                  name="file-pick"
+                  value={file.index}
+                  bind:group={selectedFileIdx}
+                />
+                <div class="file-info">
+                  <span class="file-name">{file.name}</span>
+                  <span class="file-size">{formatBytes(file.size_bytes)}</span>
+                </div>
+              </label>
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
   {/if}
@@ -583,5 +631,107 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     .results-grid {
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
+  }
+
+  .source-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 0;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    margin-bottom: -2px;
+  }
+
+  .tab-btn:hover {
+    color: var(--text);
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .file-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .file-option:hover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.05);
+  }
+
+  .file-option.selected {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .file-option input[type="radio"] {
+    accent-color: var(--accent);
+  }
+
+  .file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .file-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-size {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .btn-secondary {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>
