@@ -50,6 +50,8 @@ pub async fn meta_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Path((type_, imdb_id)): axum::extract::Path<(String, String)>,
 ) -> Json<MetaResponse> {
+    // Strip .json suffix if present
+    let imdb_id = imdb_id.strip_suffix(".json").unwrap_or(&imdb_id).to_string();
     let cached = match queries::get_cached_meta(&state.db, &imdb_id, &type_).await {
         Ok(c) => c,
         Err(e) => {
@@ -76,6 +78,8 @@ pub async fn stream_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Path((_type_, id)): axum::extract::Path<(String, String)>,
 ) -> Json<StreamResponse> {
+    // Strip .json suffix if present (Axum captures it as part of the parameter)
+    let id = id.strip_suffix(".json").unwrap_or(&id).to_string();
     let (imdb_id, season, episode) = parse_stream_id(&id);
     tracing::info!("stream_handler: imdb_id={}, season={:?}, episode={:?}", imdb_id, season, episode);
 
