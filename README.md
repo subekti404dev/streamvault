@@ -85,3 +85,4 @@ Required secrets for production:
 - GitHub PAT with `repo` and `workflow` scopes
 - Discord bot token with file upload permissions
 - (Optional) Telegram bot token for notifications
+
