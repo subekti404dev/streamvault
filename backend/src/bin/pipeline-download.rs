@@ -1,13 +1,9 @@
 //! Torrent download binary using librqbit.
 //!
 //! Usage: pipeline-download <job_id> <callback_url> <callback_token> <magnet_uri> <file_idx>
-//!
-//! Environment:
-//!   MAX_IDLE_SECONDS  - abort if no progress (default: 600)
-//!   MAX_TOTAL_SECONDS - abort overall (default: 7200)
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use librqbit::{AddTorrent, AddTorrentOptions, PeerConnectionOptions, Session};
 
@@ -94,8 +90,6 @@ async fn run_download(
     callback_token: &str,
     magnet_uri: &str,
     file_idx: usize,
-    max_idle: Duration,
-    max_total: Duration,
 ) -> Result<(), String> {
     let output_dir = PathBuf::from("./downloads");
     std::fs::create_dir_all(&output_dir).map_err(|e| format!("mkdir downloads: {e}"))?;
@@ -129,10 +123,7 @@ async fn run_download(
     let client = reqwest::Client::new();
     send_progress(&client, callback_url, callback_token, job_id, 0).await;
 
-    let start = Instant::now();
-    let mut last_progress = Instant::now();
     let mut last_pct: u32 = 0;
-    let mut last_progress_bytes: u64 = 0;
 
     loop {
         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -146,27 +137,6 @@ async fn run_download(
         } else {
             0
         };
-
-        // Track real progress
-        if stats.progress_bytes > last_progress_bytes {
-            last_progress_bytes = stats.progress_bytes;
-            last_progress = Instant::now();
-        }
-
-        // Check idle timeout
-        if last_progress.elapsed() > max_idle {
-            eprintln!(
-                "No download progress for {}s. Aborting.",
-                max_idle.as_secs()
-            );
-            return Err("idle timeout".to_string());
-        }
-
-        // Check total timeout
-        if start.elapsed() > max_total {
-            eprintln!("Download timed out after {}s", max_total.as_secs());
-            return Err("total timeout".to_string());
-        }
 
         // Check completion
         if stats.finished {
@@ -204,24 +174,7 @@ async fn main() {
     let magnet_uri = &args[4];
     let file_idx: usize = args[5].parse().unwrap_or(1);
 
-    let max_idle = std::env::var("MAX_IDLE_SECONDS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .map(Duration::from_secs)
-        .unwrap_or(Duration::from_secs(600));
-
-    let max_total = std::env::var("MAX_TOTAL_SECONDS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .map(Duration::from_secs)
-        .unwrap_or(Duration::from_secs(7200));
-
     eprintln!("pipeline-download: job={job_id}, file_idx={file_idx}");
-    eprintln!(
-        "Max idle: {}s, Max total: {}s",
-        max_idle.as_secs(),
-        max_total.as_secs()
-    );
 
     match run_download(
         job_id,
@@ -229,8 +182,6 @@ async fn main() {
         callback_token,
         magnet_uri,
         file_idx,
-        max_idle,
-        max_total,
     )
     .await
     {

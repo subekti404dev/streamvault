@@ -63,7 +63,6 @@ on:
         default: 'false'
 
 env:
-  MAX_IDLE_SECONDS: '900'
   CALLBACK_URL: ${{ inputs.callback_url }}
   CALLBACK_TOKEN: ${{ inputs.callback_token }}
   JOB_ID: ${{ inputs.job_id }}
@@ -71,7 +70,7 @@ env:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 1440
     steps:
       - name: Checkout
         uses: actions/checkout@v4
