@@ -21,13 +21,14 @@ pub async fn progress_callback(
             chunk.get("discord_url").and_then(|v| v.as_str()),
         ) {
             let chunk_idx = chunk.get("chunk_index").and_then(|v| v.as_i64()).unwrap_or(0);
+            let duration = chunk.get("duration_seconds").and_then(|v| v.as_f64());
             queries::insert_hls_chunk(&state.db, &queries::NewHlsChunk {
                 job_id: id.clone(),
                 chunk_index: chunk_idx,
                 filename: filename.to_string(),
                 discord_url: Some(discord_url.to_string()),
                 discord_message_id: chunk.get("discord_message_id").and_then(|v| v.as_str()).map(String::from),
-                duration_seconds: None,
+                duration_seconds: duration,
                 file_size_bytes: None,
             }).await?;
         }
