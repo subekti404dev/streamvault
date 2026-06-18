@@ -10,22 +10,29 @@ pub async fn playlist_handler(
     Path(job_id): Path<String>,
 ) -> AppResult<impl IntoResponse> {
     let _job = queries::get_job(&state.db, &job_id).await?;
-    let chunks = queries::get_hls_chunks(&state.db, &job_id).await?;
+    let all_chunks = queries::get_hls_chunks(&state.db, &job_id).await?;
+
+    // Filter only .ts segments (exclude .m3u8 playlists)
+    let chunks: Vec<_> = all_chunks.into_iter()
+        .filter(|c| c.filename.ends_with(".ts"))
+        .collect();
+
+    if chunks.is_empty() {
+        return Err(crate::error::AppError::NotFound("No HLS segments found for this job".into()));
+    }
 
     let base_url = state.config.read().await.public_base_url.clone();
 
-    let mut playlist = String::from(
-        "#EXTM3U\n#EXT-X-VERSION:3\n"
-    );
-
-    if let Some(max_duration) = chunks.iter()
+    // Calculate target duration (required by HLS spec)
+    let target_duration = chunks.iter()
         .filter_map(|c| c.duration_seconds)
         .map(|d| d.ceil() as i64)
         .max()
-    {
-        playlist.push_str(&format!("#EXT-X-TARGETDURATION:{}\n", max_duration));
-    }
+        .unwrap_or(6);
 
+    let mut playlist = String::from("#EXTM3U\n");
+    playlist.push_str("#EXT-X-VERSION:3\n");
+    playlist.push_str(&format!("#EXT-X-TARGETDURATION:{}\n", target_duration));
     playlist.push_str("#EXT-X-MEDIA-SEQUENCE:0\n");
 
     for chunk in &chunks {
@@ -37,7 +44,11 @@ pub async fn playlist_handler(
     playlist.push_str("#EXT-X-ENDLIST\n");
 
     Ok((
-        [(axum::http::header::CONTENT_TYPE, "application/vnd.apple.mpegurl")],
+        [
+            (axum::http::header::CONTENT_TYPE, "application/vnd.apple.mpegurl"),
+            (axum::http::header::CACHE_CONTROL, "no-cache"),
+            (axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
+        ],
         playlist,
     ))
 }
