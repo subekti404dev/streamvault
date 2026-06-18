@@ -33,12 +33,11 @@ mkdir -p "$CONFIG_DIR"
 transmission-daemon \
   --config-dir "$CONFIG_DIR" \
   --download-dir ./downloads \
-  --port 9091 \
-  --rpc-port 9092 \
+  --port 9092 \
   --no-auth \
   --no-portmap \
   --no-global-seed \
-  --log-error \
+  --log-level=error \
   --foreground > /tmp/transmission.log 2>&1 &
 DAEMON_PID=$!
 echo "transmission-daemon PID: $DAEMON_PID"
