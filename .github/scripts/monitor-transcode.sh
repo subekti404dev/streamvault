@@ -25,11 +25,21 @@ mkdir -p ./hls
 # Validate input file exists and is a valid media file
 if [ ! -f "$INPUT_FILE" ]; then
   echo "ERROR: Input file not found: $INPUT_FILE" >&2
+  echo "Contents of ./downloads:" >&2
+  find ./downloads -type f | head -20 >&2
   exit 1
 fi
+
+echo "Input file exists: $INPUT_FILE" >&2
+echo "File size: $(du -h "$INPUT_FILE" | cut -f1)" >&2
+echo "File type: $(file -b "$INPUT_FILE" | head -c 100)" >&2
+
 if ! ffprobe -v error "$INPUT_FILE" > /dev/null 2>&1; then
-  echo "ERROR: Input file is not a valid media file: $INPUT_FILE" >&2
-  ls -la "$(dirname "$INPUT_FILE")" >&2
+  echo "ERROR: ffprobe failed on input file" >&2
+  echo "ffprobe output:" >&2
+  ffprobe -v error "$INPUT_FILE" 2>&1 >&2
+  echo "First 100 bytes (hex):" >&2
+  hexdump -C -n 100 "$INPUT_FILE" | head -5 >&2
   exit 1
 fi
 
@@ -57,6 +67,10 @@ fi
 
 # Get total duration in seconds
 DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
+if [ "$DURATION" = "0" ] || [ -z "$DURATION" ]; then
+  echo "WARNING: Could not determine duration, trying alternative method" >&2
+  DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$INPUT_FILE" 2>/dev/null || echo "0")
+fi
 echo "Input: $INPUT_FILE, Duration: ${DURATION}s, Source height: $SOURCE_HEIGHT" >&2
 
 # Build ffmpeg filter complex
