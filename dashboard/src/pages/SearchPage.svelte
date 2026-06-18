@@ -439,23 +439,22 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         {/if}
 
         {#if inspectedFiles.length > 0}
-          <h4 style="margin-bottom:0.5rem; color:var(--text-secondary)">
-            {inspectedFiles.length} file(s) in {torrentName}
+          <h4 style="margin: 1rem 0 0.75rem; color:var(--text-secondary); font-size:0.85rem; font-weight:500;">
+            {inspectedFiles.length} file(s) in <span style="color:var(--text-primary)">{torrentName}</span>
           </h4>
           <div class="file-list">
             {#each inspectedFiles as file}
-              <label class="file-option {selectedFileIdx === file.index ? 'selected' : ''}">
-                <input
-                  type="radio"
-                  name="file-pick"
-                  value={file.index}
-                  bind:group={selectedFileIdx}
-                />
+              <button
+                type="button"
+                class="file-option {selectedFileIdx === file.index ? 'selected' : ''}"
+                onclick={() => selectedFileIdx = file.index}
+              >
+                <span class="file-radio {selectedFileIdx === file.index ? 'active' : ''}"></span>
                 <div class="file-info">
                   <span class="file-name">{file.name}</span>
                   <span class="file-size">{formatBytes(file.size_bytes)}</span>
                 </div>
-              </label>
+              </button>
             {/each}
           </div>
         {/if}
@@ -675,15 +674,21 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.15s ease;
+    text-align: left;
+    color: var(--text-primary);
+    width: 100%;
+    font-family: inherit;
+    font-size: inherit;
   }
 
   .file-option:hover {
-    border-color: var(--accent);
-    background: rgba(99, 102, 241, 0.05);
+    background: var(--glass-hover);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
   .file-option.selected {
@@ -691,14 +696,34 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     background: rgba(99, 102, 241, 0.1);
   }
 
-  .file-option input[type="radio"] {
-    accent-color: var(--accent);
+  .file-radio {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .file-radio.active {
+    border-color: var(--accent);
+  }
+
+  .file-radio.active::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 
   .file-info {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.2rem;
     min-width: 0;
   }
 
@@ -717,9 +742,9 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   .btn-secondary {
     padding: 0.5rem 1rem;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 0.85rem;
     transition: all 0.15s ease;
