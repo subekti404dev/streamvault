@@ -3,5 +3,5 @@
 [cmd]: https://commandcode.ai/
 
 # pipeline
-- Use transmission-cli for torrent download functionality (not librqbit/aria2c). transmission-cli is standalone on Alpine/Ubuntu, no daemon needed. Confidence: 0.70
+- Use transmission-daemon + transmission-cli for torrent download functionality (not librqbit/aria2c). On Ubuntu, transmission-cli is just the daemon controller — requires transmission-daemon running alongside it. Stop systemd daemon first then run foreground with --no-global-seed. Confidence: 0.75
 

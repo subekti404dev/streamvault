@@ -27,6 +27,7 @@ hex = "0.4"
 sha2 = "0.10"
 hmac = "0.12"
 librqbit = "8"
+url = "2"
 
 [[bin]]
 name = "pipeline-download"

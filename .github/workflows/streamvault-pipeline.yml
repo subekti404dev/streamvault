@@ -80,13 +80,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq jq bc ffmpeg transmission-daemon transmission-cli
 
-      - name: Download pipeline upload binary
-        run: |
-          curl -sfL -H "X-Callback-Token: ${{ inputs.callback_token }}" \
-            "${{ inputs.callback_url }}/api/v1/pipeline/binaries/pipeline-upload" \
-            -o /usr/local/bin/pipeline-upload
-          chmod +x /usr/local/bin/pipeline-upload
-
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
         uses: actions/download-artifact@v4
@@ -279,23 +272,12 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
           DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}
         run: |
-          pipeline-upload \
-            --hls-dir ./hls \
-            --discord-token "$DISCORD_BOT_TOKEN" \
-            --discord-channel "$DISCORD_CHANNEL_ID" \
-            --callback-base "$CALLBACK_URL" \
-            --job-id "${{ inputs.job_id }}" \
-            --callback-token "$CALLBACK_TOKEN" \
-            --chunk-map /tmp/chunk_map.txt \
-            --playlist master.m3u8
-
-          pipeline-upload \
-            --reconcile-durations \
-            --hls-dir ./hls \
-            --discord-token "$DISCORD_BOT_TOKEN" \
-            --discord-channel "$DISCORD_CHANNEL_ID" \
-            --chunk-map /tmp/chunk_map.txt \
-            --playlist master.m3u8
+          chmod +x .github/scripts/upload-to-discord.sh
+          .github/scripts/upload-to-discord.sh \
+            "${{ inputs.job_id }}" \
+            "${{ inputs.callback_url }}" \
+            "${{ inputs.callback_token }}" \
+            "./hls"
 
       - name: Report completion
         if: success()

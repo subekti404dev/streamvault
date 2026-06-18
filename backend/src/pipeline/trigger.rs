@@ -1,6 +1,65 @@
 use std::sync::Arc;
 use crate::{app::AppState, db::queries, error::{AppResult, AppError}};
 
+pub const WORKFLOW_FILE: &str = "streamvault-pipeline.yml";
+
+pub async fn fetch_gh_run_id(
+    client: &reqwest::Client,
+    gh_token: &str,
+    gh_repo: &str,
+) -> Option<String> {
+    let url = format!(
+        "https://api.github.com/repos/{}/actions/workflows/{}/runs?status=in_progress&status=queued&per_page=5&sort=created&direction=desc",
+        gh_repo, WORKFLOW_FILE
+    );
+    let resp = client
+        .get(&url)
+        .bearer_auth(gh_token)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "StreamVault/1.0")
+        .send()
+        .await
+        .ok()?;
+
+    if !resp.status().is_success() {
+        return None;
+    }
+
+    let json: serde_json::Value = resp.json().await.ok()?;
+    let runs = json.get("workflow_runs")?.as_array()?;
+    // Return the first (most recent) run
+    let run_id = runs.first()?.get("id")?.as_i64()?;
+    Some(run_id.to_string())
+}
+
+pub async fn cancel_gh_run(
+    client: &reqwest::Client,
+    gh_token: &str,
+    gh_repo: &str,
+    run_id: &str,
+) -> Result<(), String> {
+    let url = format!(
+        "https://api.github.com/repos/{}/actions/runs/{}/cancel",
+        gh_repo, run_id
+    );
+    let resp = client
+        .post(&url)
+        .bearer_auth(gh_token)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "StreamVault/1.0")
+        .send()
+        .await
+        .map_err(|e| format!("cancel request: {e}"))?;
+
+    let status = resp.status();
+    if status.is_success() || status.as_u16() == 204 {
+        Ok(())
+    } else {
+        let text = resp.text().await.unwrap_or_default();
+        Err(format!("cancel failed ({status}): {text}"))
+    }
+}
+
 pub async fn trigger_pipeline(
     state: &Arc<AppState>,
     job: &queries::Job,
@@ -59,11 +118,18 @@ pub async fn trigger_pipeline(
     }
 
     // GitHub returns 204 No Content on success.
-    // We store the run ID as best-effort.
-    queries::update_job_gh_run(&state.db, &job.id, "pending").await?;
+    // Poll for the actual run ID (GitHub creates it asynchronously).
+    let gh_run_id = {
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        fetch_gh_run_id(&state.http, &gh_token, &gh_repo)
+            .await
+            .unwrap_or_else(|| "pending".to_string())
+    };
+
+    queries::update_job_gh_run(&state.db, &job.id, &gh_run_id).await?;
     queries::insert_job_event(
         &state.db, &job.id, None, "status_change",
-        "Pipeline triggered via GitHub Actions", None,
+        &format!("Pipeline triggered (run_id: {gh_run_id})"), None,
     ).await?;
 
     Ok("pending".to_string())

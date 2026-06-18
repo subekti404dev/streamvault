@@ -159,11 +159,47 @@ pub async fn delete_job(
     let job = queries::get_job(&state.db, &id).await
         .map_err(|_| AppError::NotFound(format!("Job {} not found", id)))?;
 
-    if ["processing", "downloading", "transcoding", "uploading"].contains(&job.status.as_str()) {
-        return Err(AppError::BadRequest("Cannot remove a job that is currently processing".into()));
+    let active_statuses = [
+        "processing", "downloading", "transcoding", "uploading",
+        "checkpoint_download", "checkpoint_transcode",
+    ];
+    let is_active = active_statuses.contains(&job.status.as_str());
+
+    // Cancel GitHub Actions run if the job is active
+    if is_active {
+        if let Some(ref run_id) = job.gh_run_id {
+            if run_id != "pending" && !run_id.is_empty() {
+                let config = state.config.read().await;
+                let gh_token = crate::pipeline::trigger::get_setting_or_env(&state, "gh_token").await?.unwrap_or_default();
+                let gh_repo = crate::pipeline::trigger::get_setting_or_env(&state, "gh_repo").await?.unwrap_or_default();
+                drop(config);
+
+                if !gh_token.is_empty() && !gh_repo.is_empty() {
+                    match crate::pipeline::trigger::cancel_gh_run(&state.http, &gh_token, &gh_repo, run_id).await {
+                        Ok(()) => {
+                            eprintln!("[queue] Cancelled GH run {run_id} for job {id}");
+                            queries::insert_job_event(
+                                &state.db, &id, None, "status_change",
+                                &format!("Cancelled GitHub Actions run {run_id}"), None,
+                            ).await?;
+                        }
+                        Err(e) => {
+                            eprintln!("[queue] Failed to cancel GH run {run_id}: {e}");
+                            // Non-fatal — still proceed with DB deletion
+                        }
+                    }
+                }
+            }
+        }
     }
 
+    // Delete from DB (cascades to job_events and hls_chunks)
     queries::delete_job(&state.db, &id).await?;
 
-    Ok(Json(serde_json::json!({ "removed": true })))
+    // Broadcast SSE event
+    let _ = state.event_tx.send(crate::api::events::SseEvent::JobRemoved {
+        job_id: id.clone(),
+    });
+
+    Ok(Json(serde_json::json!({ "removed": true, "cancelled_run": is_active })))
 }
