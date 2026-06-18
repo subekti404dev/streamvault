@@ -14,7 +14,6 @@ pub struct Config {
     pub telegram_channel_id: Option<String>,
     pub torrentio_base_url: Option<String>,
     pub dashboard_dir: PathBuf,
-    pub pipeline_bin_dir: PathBuf,
 }
 
 impl Config {
@@ -36,9 +35,6 @@ impl Config {
             dashboard_dir: std::env::var("STREAMVAULT_DASHBOARD_DIR")
                 .map(PathBuf::from)
                 .unwrap_or_else(|_| PathBuf::from("dashboard/dist")),
-            pipeline_bin_dir: std::env::var("STREAMVAULT_PIPELINE_BIN_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/app")),
         };
         Ok(config)
     }

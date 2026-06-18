@@ -28,11 +28,3 @@ sha2 = "0.10"
 hmac = "0.12"
 librqbit = "8"
 url = "2"
-
-[[bin]]
-name = "pipeline-download"
-path = "src/bin/pipeline-download.rs"
-
-[[bin]]
-name = "pipeline-upload"
-path = "src/bin/pipeline-upload.rs"
