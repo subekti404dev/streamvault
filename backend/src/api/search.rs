@@ -236,8 +236,27 @@ const DEFAULT_TRACKERS: &[&str] = &[
     "https://t.213891.xyz:443/announce",
     "https://pybittrack.retiolus.net:443/announce",
     "https://open.ftorrent.com:443/announce",
+    // UDP
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://open.stealth.si:80/announce",
+    "udp://tracker.torrent.eu.org:451/announce",
+    "udp://tracker.moeking.me:6969/announce",
+    "udp://explodie.org:6969/announce",
+    "udp://exodus.desync.com:6969/announce",
+    "udp://tracker1.bt.moack.co.kr:80/announce",
+    "udp://tracker.bitsearch.to:1337/announce",
+    "udp://tracker-udp.gbitt.info:80/announce",
+    "udp://p4p.arenabg.com:1337/announce",
+    "udp://movies.zsw.ca:6969/announce",
+    "udp://tracker.theoks.net:6969/announce",
+    "udp://retracker.lanta-net.ru:2710/announce",
+    "udp://retracker.netbynet.ru:2710/announce",
+    "udp://opentracker.i2p.rocks:6969/announce",
+    "udp://tracker.4.babico.name.tr:31337/announce",
+    "udp://tracker.ccp.ovh:6969/announce",
+    "udp://tracker.auctor.tv:6969/announce",
 ];
-
 /// Build magnet URI with infohash + display name + common trackers
 fn build_magnet(infohash: &str, dn: &str) -> String {
     let dn_encoded: String = byte_serialize(dn.as_bytes()).collect();
