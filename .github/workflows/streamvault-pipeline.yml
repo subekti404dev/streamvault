@@ -1,7 +1,7 @@
 name: StreamVault Pipeline
 
-# This workflow downloads torrents with Rust (librqbit), transcodes to HLS,
-# then uploads chunks to Discord sequentially.
+# This workflow downloads torrents with transmission-cli, transcodes to HLS,
+# then uploads chunks to Discord.
 #
 # Key inputs:
 #   - file_idx: File index within torrent (0-based)
@@ -78,17 +78,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq jq bc ffmpeg
+          sudo apt-get install -y -qq jq bc ffmpeg transmission-daemon transmission-cli
 
-      - name: Download pipeline binaries
+      - name: Download pipeline upload binary
         run: |
-          curl -sfL -H "X-Callback-Token: ${{ inputs.callback_token }}" \
-            "${{ inputs.callback_url }}/api/v1/pipeline/binaries/pipeline-download" \
-            -o /usr/local/bin/pipeline-download
           curl -sfL -H "X-Callback-Token: ${{ inputs.callback_token }}" \
             "${{ inputs.callback_url }}/api/v1/pipeline/binaries/pipeline-upload" \
             -o /usr/local/bin/pipeline-upload
-          chmod +x /usr/local/bin/pipeline-download /usr/local/bin/pipeline-upload
+          chmod +x /usr/local/bin/pipeline-upload
 
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
@@ -100,14 +97,13 @@ jobs:
       - name: Download torrent
         if: inputs.skip_download != 'true'
         run: |
-          pipeline-download \
+          chmod +x .github/scripts/*.sh
+          .github/scripts/monitor-transmission.sh \
             "${{ inputs.job_id }}" \
             "${{ inputs.callback_url }}" \
             "${{ inputs.callback_token }}" \
-            "${{ inputs.magnet_uri }}" \
-            "$(( ${{ inputs.file_idx }} + 1 ))"
+            "${{ inputs.magnet_uri }}"
 
-          chmod +x .github/scripts/*.sh
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
             '{"checkpoint":"download","artifact_id":"checkpoint-dl-${{ inputs.job_id }}"}'
 

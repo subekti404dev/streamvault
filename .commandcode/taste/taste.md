@@ -3,5 +3,5 @@
 [cmd]: https://commandcode.ai/
 
 # pipeline
-- Use Rust scripts instead of aria2c for download functionality. Confidence: 0.65
+- Use transmission-cli for torrent download functionality (not librqbit/aria2c). transmission-cli is standalone on Alpine/Ubuntu, no daemon needed. Confidence: 0.70
 
