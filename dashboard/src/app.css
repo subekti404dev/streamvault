@@ -107,7 +107,7 @@ body {
   background: rgba(16, 185, 129, 0.25);
 }
 
-input, select {
+input, select, textarea {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -119,11 +119,11 @@ input, select {
   width: 100%;
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
 }
 
-input::placeholder {
+input::placeholder, textarea::placeholder {
   color: var(--text-muted);
 }
 

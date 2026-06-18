@@ -409,7 +409,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
             placeholder="magnet:?xt=urn:btih:..."
             rows="3"
             oninput={handleMagnetInput}
-            style="font-family:monospace; font-size:0.8rem; resize:vertical;"
+            style="font-family:monospace; resize:vertical;"
           ></textarea>
         </div>
         {#if parseMagnet(customMagnet).infohash}
