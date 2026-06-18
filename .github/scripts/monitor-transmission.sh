@@ -110,7 +110,8 @@ while ! $DONE; do
 
   if [ "$DONE_PCT" != "$LAST_PCT" ] && [ -n "$DONE_PCT" ]; then
     LAST_PCT=$DONE_PCT
-    if [ "$DONE_PCT" -le 100 ]; then
+    # Skip non-numeric values (n/a before metadata loads)
+    if [[ "$DONE_PCT" =~ ^[0-9]+$ ]] && [ "$DONE_PCT" -le 100 ]; then
       callback "progress" "{\"phase\":\"download\",\"progress_pct\":$DONE_PCT}"
       echo "Download: ${DONE_PCT}% — $STATUS (peers: $PEERS)"
     fi
