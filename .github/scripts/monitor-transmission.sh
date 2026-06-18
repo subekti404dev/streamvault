@@ -36,7 +36,7 @@ transmission-daemon \
   --port 9092 \
   --no-auth \
   --no-portmap \
-  --no-global-seed \
+  --no-global-seedratio \
   --log-level=error \
   --foreground > /tmp/transmission.log 2>&1 &
 DAEMON_PID=$!
