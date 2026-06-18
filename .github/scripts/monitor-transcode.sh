@@ -65,7 +65,7 @@ callback "progress" '{"phase":"transcode","progress_pct":0}'
 rm -f "$LOG_FILE"
 ffmpeg -y \
   -i "$INPUT_FILE" \
-  -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 5000k \
+  -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 5000k \
   -c:a aac -b:a 128k \
   -vf "scale=-2:$TARGET_HEIGHT" \
   -force_key_frames "expr:eq(mod(n,72),0)" \
@@ -111,6 +111,29 @@ echo "[transcode] --- end log ---" >&2
 if [ $EXIT_CODE -eq 0 ]; then
   callback "progress" '{"phase":"transcode","progress_pct":100}'
   TOTAL_CHUNKS=$(ls "${HLS_DIR}"/seg_*.ts 2>/dev/null | wc -l)
+
+  # Parse real durations from ffmpeg's playlist and store in a temp file
+  # so upload-to-discord.sh can read them
+  if [ -f "${HLS_DIR}/master.m3u8" ]; then
+    awk -v dir="$HLS_DIR" '
+      /^#EXTINF:/ {
+        dur = $0
+        sub(/^#EXTINF:/, "", dur)
+        sub(/,.*$/, "", dur)
+        next
+      }
+      /\.ts$/ {
+        fname = $0
+        gsub(/^.*\//, "", fname)
+        if (dur != "") {
+          print fname "|" dur
+          dur = ""
+        }
+      }
+    ' "${HLS_DIR}/master.m3u8" > "${HLS_DIR}/.durations.txt" 2>/dev/null || true
+    echo "Parsed $(wc -l < "${HLS_DIR}/.durations.txt") chunk durations" >&2
+  fi
+
   echo "Transcode complete: $TOTAL_CHUNKS chunks"
 else
   echo "Transcode failed with exit code $EXIT_CODE" >&2
