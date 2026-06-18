@@ -9,7 +9,63 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use librqbit::{AddTorrent, AddTorrentOptions, Session};
+use librqbit::{AddTorrent, AddTorrentOptions, PeerConnectionOptions, Session};
+
+const FALLBACK_TRACKERS: &[&str] = &[
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://tracker.torrent.eu.org:451/announce",
+    "udp://open.tracker.cl:1337/announce",
+    "udp://tracker.altrosky.nl:6969/announce",
+    "http://tracker.bt4g.com:2095/announce",
+    "udp://exodus.desync.com:6969/announce",
+    "udp://tracker.tiny-vps.com:6969/announce",
+    "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://tracker.dler.org:6969/announce",
+    "udp://opentracker.i2p.rocks:6969/announce",
+    "udp://open.demonii.com:1337/announce",
+    "udp://tracker.openbittorrent.com:80/announce",
+    "udp://tracker.moeking.me:6969/announce",
+    "udp://tracker.itame.org:6969/announce",
+    "udp://tracker1.bt.moack.co.kr:80/announce",
+    "udp://tracker2.dler.org:80/announce",
+    "https://tracker.tamersunion.org:443/announce",
+    "https://tracker.gbitt.info:443/announce",
+    "http://tracker.files.fm:6969/announce",
+    "http://openbittorrent.com:80/announce",
+];
+
+async fn fetch_trackers() -> Vec<String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
+
+    match client
+        .get("https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt")
+        .send()
+        .await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            let text = resp.text().await.unwrap_or_default();
+            let trackers: Vec<String> = text
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .collect();
+            if trackers.is_empty() {
+                eprintln!("Trackers list empty, using fallback");
+                FALLBACK_TRACKERS.iter().map(|s| s.to_string()).collect()
+            } else {
+                eprintln!("Fetched {} trackers from trackerslist", trackers.len());
+                trackers
+            }
+        }
+        _ => {
+            eprintln!("Failed to fetch trackers, using fallback list");
+            FALLBACK_TRACKERS.iter().map(|s| s.to_string()).collect()
+        }
+    }
+}
 
 async fn send_progress(
     client: &reqwest::Client,
@@ -48,11 +104,20 @@ async fn run_download(
         .await
         .map_err(|e| format!("create session: {e}"))?;
 
+    let trackers = fetch_trackers().await;
+
     let mut options = AddTorrentOptions::default();
     if file_idx > 0 {
         options.only_files = Some(vec![file_idx - 1]);
     }
     options.overwrite = true;
+    options.trackers = Some(trackers);
+    options.force_tracker_interval = Some(Duration::from_secs(30));
+    options.peer_opts = Some(PeerConnectionOptions {
+        connect_timeout: Some(Duration::from_secs(15)),
+        read_write_timeout: Some(Duration::from_secs(30)),
+        keep_alive_interval: Some(Duration::from_secs(60)),
+    });
 
     let handle = session
         .add_torrent(AddTorrent::from_url(magnet_uri), Some(options))
