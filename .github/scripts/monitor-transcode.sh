@@ -71,7 +71,14 @@ if [ "$DURATION" = "0" ] || [ -z "$DURATION" ]; then
   echo "WARNING: Could not determine duration, trying alternative method" >&2
   DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$INPUT_FILE" 2>/dev/null || echo "0")
 fi
-echo "Input: $INPUT_FILE, Duration: ${DURATION}s, Source height: $SOURCE_HEIGHT" >&2
+
+# Convert duration to integer (remove decimal part) for bash arithmetic
+DURATION_INT="${DURATION%.*}"
+if [ -z "$DURATION_INT" ] || [ "$DURATION_INT" = "0" ]; then
+  DURATION_INT=0
+fi
+
+echo "Input: $INPUT_FILE, Duration: ${DURATION}s (${DURATION_INT}s int), Source height: $SOURCE_HEIGHT" >&2
 
 # Build ffmpeg filter complex
 FILTER_COMPLEX=""
@@ -119,8 +126,8 @@ ffmpeg -y -i "$INPUT_FILE" \
   if [ "$key" = "out_time_us" ]; then
     # out_time_us is in microseconds, total duration in seconds
     USEC="$value"
-    if [ -n "$DURATION" ] && [ "$DURATION" -gt 0 ] && [ "$USEC" -gt 0 ]; then
-      PCT=$(( USEC / 10000 / DURATION ))
+    if [ -n "$DURATION_INT" ] && [ "$DURATION_INT" -gt 0 ] && [ "$USEC" -gt 0 ]; then
+      PCT=$(( USEC / 10000 / DURATION_INT ))
       if [ "$PCT" -gt 100 ]; then PCT=100; fi
       callback "progress" "{\"phase\":\"transcode\",\"progress_pct\":$PCT}"
     fi
