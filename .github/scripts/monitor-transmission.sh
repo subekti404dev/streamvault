@@ -38,6 +38,7 @@ transmission-daemon \
   --no-auth \
   --no-portmap \
   --no-global-seed \
+  --log-error \
   --foreground > /tmp/transmission.log 2>&1 &
 DAEMON_PID=$!
 echo "transmission-daemon PID: $DAEMON_PID"
@@ -78,8 +79,11 @@ while ! $DONE; do
 
   # Check daemon is still alive
   if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
-    echo "transmission-daemon died unexpectedly"
-    callback "failed" '{"error_message":"transmission-daemon crashed"}'
+    echo "transmission-daemon died unexpectedly (exit code: $?)"
+    echo "=== transmission.log ==="
+    cat /tmp/transmission.log 2>/dev/null || echo "(no log file)"
+    echo "=== end transmission.log ==="
+    callback "failed" '{"error_message":"transmission-daemon crashed (see CI logs)"}'
     exit 1
   fi
 
