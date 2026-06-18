@@ -107,6 +107,27 @@
       </div>
     </div>
 
+    {#if job.status === 'completed'}
+      <div class="glass-card stream-card">
+        <h3>🎬 Stream URL</h3>
+        <div class="stream-url-box">
+          <code>{window.location.origin}/proxy/hls/{job.id}/master.m3u8</code>
+          <button
+            class="btn btn-sm btn-primary"
+            onclick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/proxy/hls/${job.id}/master.m3u8`);
+              addToast('HLS URL copied!', 'success');
+            }}
+          >
+            Copy
+          </button>
+        </div>
+        <p class="text-muted" style="font-size:0.8rem; margin-top:0.5rem;">
+          Use this URL in any HLS player, or find this title in Stremio with the StreamVault addon installed.
+        </p>
+      </div>
+    {/if}
+
     {#if job.status === 'failed'}
       <div class="glass-card error-card">
         <h3>Error Details</h3>
@@ -198,6 +219,18 @@
   .back-link { color: var(--text-secondary); text-decoration: none; font-size: 0.875rem; display: inline-block; margin-bottom: 1rem; }
   .back-link:hover { color: var(--text-primary); }
   .glass-card { padding: 1.25rem; margin-bottom: 1rem; }
+  .stream-card { border-color: rgba(16,185,129,0.3); }
+  .stream-card h3 { color: var(--success); margin-bottom: 0.75rem; }
+  .stream-url-box { display: flex; align-items: center; gap: 0.5rem; }
+  .stream-url-box code {
+    flex: 1;
+    background: rgba(0,0,0,0.2);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    word-break: break-all;
+  }
 
   .job-title-row { display: flex; justify-content: space-between; align-items: flex-start; }
   .job-title-row h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }
