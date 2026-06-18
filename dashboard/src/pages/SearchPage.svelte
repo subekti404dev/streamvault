@@ -18,7 +18,13 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let catalogResults = $state<StremioMetaItem[]>([]);
   let selectedItem = $state<StremioMetaItem | null>(null);
   let showImdbSearch = $state(false);
+  let showCustomMagnet = $state(false);
   let metadataBaseUrl = $state('');
+  let customMagnet = $state('');
+  let customTitle = $state('');
+  let customImdbId = $state('');
+  let customMediaType = $state('movie');
+  let customAdding = $state(false);
 
   onMount(async () => {
     try {
@@ -119,6 +125,54 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       addToast(`Failed: ${e.message}`, 'error');
     }
   }
+
+  function parseMagnet(uri: string): { infohash: string; name: string } {
+    const hashMatch = uri.match(/btih:([a-fA-F0-9]{40})/i);
+    const infohash = hashMatch ? hashMatch[1].toLowerCase() : '';
+    const dnMatch = uri.match(/[?&]dn=([^&]+)/);
+    const name = dnMatch ? decodeURIComponent(dnMatch[1].replace(/\+/g, ' ')) : '';
+    return { infohash, name };
+  }
+
+  function handleMagnetInput() {
+    const parsed = parseMagnet(customMagnet);
+    if (!customTitle && parsed.name) {
+      customTitle = parsed.name;
+    }
+  }
+
+  async function addCustomToQueue() {
+    const parsed = parseMagnet(customMagnet);
+    if (!parsed.infohash) {
+      addToast('Invalid magnet URI — could not extract infohash', 'error');
+      return;
+    }
+    customAdding = true;
+    try {
+      const title = customTitle.trim() || parsed.name || `Custom (${parsed.infohash.slice(0, 8)})`;
+      await api.addToQueue({
+        imdb_id: customImdbId.trim() || 'custom',
+        media_type: customMediaType,
+        season: null,
+        episode: null,
+        title: title,
+        poster_url: null,
+        magnet_uri: customMagnet.trim(),
+        infohash: parsed.infohash,
+        torrent_name: title,
+        file_idx: 0,
+        file_size_bytes: 0,
+      });
+      addToast(`Added to queue: ${title}`, 'success');
+      customMagnet = '';
+      customTitle = '';
+      customImdbId = '';
+    } catch (e: any) {
+      addToast(`Failed: ${e.message}`, 'error');
+    } finally {
+      customAdding = false;
+    }
+  }
 </script>
 
 <div class="page">
@@ -183,6 +237,62 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
         <button class="btn btn-primary" onclick={handleImdbSearch} disabled={loading || !imdbId.trim()}>
           {loading ? 'Searching...' : 'Search by IMDB ID'}
+        </button>
+      </div>
+    {/if}
+  </div>
+
+  <div class="glass-card search-form" style="margin-top:1rem;">
+    <div class="advanced-toggle">
+      <button class="btn-link" onclick={() => showCustomMagnet = !showCustomMagnet}>
+        {showCustomMagnet ? 'Hide' : 'Show'} Custom Magnet URI
+      </button>
+    </div>
+
+    {#if showCustomMagnet}
+      <div class="imdb-search">
+        <div class="form-group">
+          <label for="magnet">Magnet URI</label>
+          <textarea
+            id="magnet"
+            bind:value={customMagnet}
+            placeholder="magnet:?xt=urn:btih:..."
+            rows="3"
+            oninput={handleMagnetInput}
+            style="font-family:monospace; font-size:0.8rem; resize:vertical;"
+          ></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="custom-title">Title</label>
+            <input
+              id="custom-title"
+              type="text"
+              bind:value={customTitle}
+              placeholder="Auto-filled from magnet URI"
+            />
+          </div>
+          <div class="form-group">
+            <label for="custom-imdb">IMDB ID (optional)</label>
+            <input
+              id="custom-imdb"
+              type="text"
+              bind:value={customImdbId}
+              placeholder="e.g. tt0903747"
+            />
+          </div>
+        </div>
+        {#if parseMagnet(customMagnet).infohash}
+          <p class="text-muted" style="margin-bottom:0.75rem; font-size:0.8rem;">
+            Infohash: <code>{parseMagnet(customMagnet).infohash}</code>
+          </p>
+        {/if}
+        <button
+          class="btn btn-primary"
+          onclick={addCustomToQueue}
+          disabled={customAdding || !customMagnet.trim() || !parseMagnet(customMagnet).infohash}
+        >
+          {customAdding ? 'Adding...' : 'Add to Queue'}
         </button>
       </div>
     {/if}
