@@ -342,17 +342,51 @@ bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile streamvault-
 
 Single 55 MB binary. No Bun runtime, no Node, no package manager needed at deploy time.
 
-### Docker Image
+### Docker Image (multi-stage)
 
 ```dockerfile
+# ── Stage 1: Build ──────────────────────────────────────────────
+FROM oven/bun:1.3 AS builder
+WORKDIR /build
+
+# Install deps (layer cached on lockfile change)
+COPY bun-backend/package.json bun-backend/bun.lockb ./bun-backend/
+WORKDIR /build/bun-backend
+RUN bun install --frozen-lockfile
+
+# Copy source + compile binary
+COPY bun-backend/src ./src
+COPY bun-backend/tsconfig.json ./
+COPY bun-backend/drizzle.config.ts ./
+RUN bun build --compile --target=bun-linux-x64 \
+      ./src/index.ts --outfile /build/streamvault-server
+
+# ── Stage 2: Final (scratch, ~55 MB) ───────────────────────────
 FROM scratch
-COPY streamvault-server /streamvault-server
+
+# CA certs — required for outbound HTTPS (GitHub, Telegram, Discord, Cinemeta)
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# DNS config
+COPY --from=builder /etc/nsswitch.conf /etc/
+
+# Non-root user
+COPY --from=builder /etc/passwd /etc/
+
+# App binary + dashboard static files (120 KB)
+COPY --from=builder /build/streamvault-server /streamvault-server
 COPY dashboard/dist /dashboard/dist
-COPY data/ /data
+
+# Runtime data mount
+VOLUME ["/data"]
+
+EXPOSE 8080
 ENTRYPOINT ["/streamvault-server"]
 ```
 
-~55 MB total. Compare: Rust Docker image ~300 MB (`rust:slim` builder + binary).
+**Final image: ~55 MB** (55 MB binary + 200 KB CA certs + 120 KB dashboard)
+
+Compare: Rust multi-stage image ~90 MB (binary ~40 MB + `debian:slim` ~50 MB).
 
 ### Dev Loop
 
