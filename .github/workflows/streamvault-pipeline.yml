@@ -81,19 +81,15 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq jq bc ffmpeg
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-
-      - name: Build pipeline binaries
+      - name: Download pipeline binaries
         run: |
-          cargo build --release --bin pipeline-download --bin pipeline-upload
-          cp target/release/pipeline-download /usr/local/bin/
-          cp target/release/pipeline-upload /usr/local/bin/
-        working-directory: backend
+          curl -sfL -H "X-Callback-Token: ${{ inputs.callback_token }}" \
+            "${{ inputs.callback_url }}/api/v1/pipeline/binaries/pipeline-download" \
+            -o /usr/local/bin/pipeline-download
+          curl -sfL -H "X-Callback-Token: ${{ inputs.callback_token }}" \
+            "${{ inputs.callback_url }}/api/v1/pipeline/binaries/pipeline-upload" \
+            -o /usr/local/bin/pipeline-upload
+          chmod +x /usr/local/bin/pipeline-download /usr/local/bin/pipeline-upload
 
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'

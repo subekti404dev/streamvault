@@ -1,4 +1,4 @@
-use axum::{Json, extract::{State, Path}};
+use axum::{Json, extract::{State, Path}, response::IntoResponse, http::StatusCode};
 use serde_json::Value;
 use std::sync::Arc;
 use crate::{app::AppState, db::queries, error::{AppResult, AppError}, api::events::SseEvent};
@@ -124,4 +124,26 @@ pub async fn failed_callback(
     });
 
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+pub async fn serve_pipeline_binary(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> AppResult<impl IntoResponse> {
+    if name != "pipeline-download" && name != "pipeline-upload" {
+        return Err(AppError::BadRequest("Invalid binary name".into()));
+    }
+
+    let config = state.config.read().await;
+    let bin_path = config.pipeline_bin_dir.join(&name);
+
+    let bytes = tokio::fs::read(&bin_path)
+        .await
+        .map_err(|e| AppError::NotFound(format!("Binary {name}: {e}")))?;
+
+    Ok((
+        StatusCode::OK,
+        [("Content-Type", "application/octet-stream")],
+        bytes,
+    ))
 }

@@ -27,6 +27,8 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=backend /app/target/release/streamvault .
+COPY --from=backend /app/target/release/pipeline-download .
+COPY --from=backend /app/target/release/pipeline-upload .
 COPY --from=frontend /app/dashboard/dist ./dashboard
 COPY docker/entrypoint.sh .
 RUN chmod +x entrypoint.sh

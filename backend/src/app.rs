@@ -42,6 +42,7 @@ pub fn create_router(state: Arc<AppState>, dashboard_dir: PathBuf) -> Router {
         .route("/api/v1/jobs/:id/checkpoint", post(crate::api::callbacks::checkpoint_callback))
         .route("/api/v1/jobs/:id/complete", post(crate::api::callbacks::complete_callback))
         .route("/api/v1/jobs/:id/failed", post(crate::api::callbacks::failed_callback))
+        .route("/api/v1/pipeline/binaries/:name", get(crate::api::callbacks::serve_pipeline_binary))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             crate::api::auth::callback_auth_middleware,
