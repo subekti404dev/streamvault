@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { api } from '../lib/api';
-  import { connectSSE, onSseEvent } from '../lib/events';
+  import { onSseEvent } from '../lib/events';
   import type { Job, JobEvent } from '../lib/types';
   import { statusLabel, statusColor, formatDuration } from '../lib/types';
 
@@ -115,7 +114,7 @@
           <button
             class="btn btn-sm btn-primary"
             onclick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/proxy/hls/${job.id}/master.m3u8`);
+              navigator.clipboard.writeText(`${window.location.origin}/proxy/hls/${job!.id}/master.m3u8`);
               addToast('HLS URL copied!', 'success');
             }}
           >

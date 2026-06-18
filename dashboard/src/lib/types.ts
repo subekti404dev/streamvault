@@ -1,5 +1,3 @@
-/// <reference types="svelte" />
-
 export interface Job {
   id: string;
   imdb_id: string;
@@ -70,11 +68,6 @@ export interface JobDetail {
 
 export type AppSettings = Record<string, string>;
 
-export interface SseEventData {
-  type: string;
-  data: Record<string, unknown>;
-}
-
 export interface StremioCatalogResponse {
   metas: StremioMetaItem[];
 }
@@ -84,7 +77,7 @@ export interface StremioMetaItem {
   type: 'movie' | 'series';
   name: string;
   poster?: string | null;
-  year?: string | null;
+  year?: number | null;
   description?: string | null;
   runtime?: string | null;
   imdb_id?: string | null;

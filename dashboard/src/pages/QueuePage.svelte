@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api';
-  import { connectSSE, onSseEvent } from '../lib/events';
-  import type { Job, JobStatus } from '../lib/types';
-  import { statusLabel, statusColor, formatBytes, formatDuration } from '../lib/types';
+  import { onSseEvent } from '../lib/events';
+  import type { Job } from '../lib/types';
+  import { statusLabel, formatBytes, formatDuration } from '../lib/types';
 
   let { addToast, navigate }: {
     addToast: (msg: string, type?: string) => void;
@@ -53,7 +52,7 @@
   $effect(() => {
     loadQueue();
     const unsub = onSseEvent((event) => {
-      if (['job_created', 'job_started', 'job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_removed'].includes(event.type as string)) {
+      if (['job_created', 'job_started', 'job_progress', 'job_checkpoint', 'job_completed', 'job_failed', 'job_retried', 'job_removed'].includes(event.type as string)) {
         loadQueue();
       }
     });

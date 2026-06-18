@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { getToken, clearToken } from './lib/api';
   import { sseConnected, connectSSE, disconnectSSE } from './lib/events';
   import SearchPage from './pages/SearchPage.svelte';
@@ -35,6 +34,7 @@
     if (rest.length > 0) {
       routeParams = { id: rest[0] };
     }
+    history.replaceState(null, '', window.location.pathname + href);
   }
 
   function handleLogin() {
@@ -46,7 +46,6 @@
     token = loginInput.trim();
     showLogin = false;
     loginError = '';
-    connectSSE();
   }
 
   function handleLogout() {

@@ -71,15 +71,6 @@ export const api = {
     await fetch(`${BASE}/queue/${id}`, { method: 'DELETE', headers: headers() });
   },
 
-  getLibrary: async (): Promise<unknown[]> => {
-    const r = await fetch(`${BASE}/library`, { headers: headers() });
-    return handleResponse(r);
-  },
-
-  deleteLibrary: async (id: string): Promise<void> => {
-    await fetch(`${BASE}/library/${id}`, { method: 'DELETE', headers: headers() });
-  },
-
   getSettings: async (): Promise<AppSettings> => {
     const r = await fetch(`${BASE}/settings`, { headers: headers() });
     return handleResponse(r);

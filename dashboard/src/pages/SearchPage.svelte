@@ -4,6 +4,7 @@
   import type { SearchResult, Torrent, StremioMetaItem } from '../lib/types';
   import { formatBytes } from '../lib/types';
 
+const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999';
   let { addToast }: { addToast: (msg: string, type?: string) => void } = $props();
 
   let query = $state('');
@@ -22,9 +23,9 @@
   onMount(async () => {
     try {
       const settings = await api.getSettings();
-      metadataBaseUrl = settings['stremio_metadata_url'] || 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999';
+      metadataBaseUrl = settings['stremio_metadata_url'] || DEFAULT_METADATA_URL;
     } catch (e) {
-      metadataBaseUrl = 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999';
+      metadataBaseUrl = DEFAULT_METADATA_URL;
     }
   });
 
@@ -70,6 +71,8 @@
     
     imdbId = resolvedImdbId;
     mediaType = resolvedType;
+    season = 1;
+    episode = 1;
     
     if (resolvedType === 'movie') {
       await handleImdbSearch();
