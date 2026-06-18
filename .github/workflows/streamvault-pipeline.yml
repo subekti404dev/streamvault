@@ -192,13 +192,7 @@ jobs:
         run: |
           INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
-          if [ "$SOURCE_HEIGHT" -gt 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
-            TARGET_HEIGHT=1080
-          else
-            TARGET_HEIGHT=$SOURCE_HEIGHT
-          fi
-          echo "Target resolution: ${TARGET_HEIGHT}p"
-
+          
           chmod +x .github/scripts/*.sh
           .github/scripts/monitor-transcode.sh \
             "${{ inputs.job_id }}" \
