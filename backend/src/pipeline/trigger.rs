@@ -81,7 +81,9 @@ pub async fn trigger_pipeline(
     );
 
     let discord_token = get_setting_or_env(state, "discord_bot_token").await?.unwrap_or_default();
-    let discord_channel = get_setting_or_env(state, "discord_channel_id").await?.unwrap_or_default();
+
+    // Pick channel: try multi-channel IDs, fallback to single channel ID
+    let discord_channel = get_discord_channel(state, &job.id).await?;
 
     let body = serde_json::json!({
         "ref": "main",
@@ -129,12 +131,38 @@ pub async fn trigger_pipeline(
     };
 
     queries::update_job_gh_run(&state.db, &job.id, &gh_run_id).await?;
+    // Save channel_id to job
+    sqlx::query("UPDATE jobs SET discord_channel_id = ? WHERE id = ?")
+        .bind(&discord_channel)
+        .bind(&job.id)
+        .execute(&state.db).await?;
     queries::insert_job_event(
         &state.db, &job.id, None, "status_change",
-        &format!("Pipeline triggered (run_id: {gh_run_id})"), None,
+        &format!("Pipeline triggered (run_id: {gh_run_id}, channel: {discord_channel})"), None,
     ).await?;
 
     Ok("pending".to_string())
+}
+
+/// Resolve Discord channel for a job.
+/// 1. Try `discord_channel_ids` (comma-separated) → hash pick
+/// 2. Fallback to `discord_channel_id` (single)
+async fn get_discord_channel(state: &Arc<AppState>, job_id: &str) -> AppResult<String> {
+    let multi = get_setting_or_env(state, "discord_channel_ids").await?;
+    if let Some(ids) = multi {
+        let channels: Vec<String> = ids.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !channels.is_empty() {
+            if let Some(ch) = crate::pipeline::channel::pick_channel(job_id, &channels) {
+                return Ok(ch);
+            }
+        }
+    }
+    // Fallback
+    get_setting_or_env(state, "discord_channel_id").await?
+        .ok_or_else(|| AppError::BadRequest("No Discord channel configured".into()))
 }
 
 pub async fn get_setting_or_env(state: &Arc<AppState>, key: &str) -> AppResult<Option<String>> {

@@ -15,7 +15,7 @@ pub async fn get_settings(
     // Merge DB settings with env/Config settings (DB takes priority)
     let keys = [
         "gh_token", "gh_repo",
-        "discord_bot_token", "discord_channel_id",
+        "discord_bot_token", "discord_channel_id", "discord_channel_ids",
         "telegram_bot_token", "telegram_channel_id",
         "notifications_enabled",
         "torrentio_base_url",

@@ -3,8 +3,14 @@ use tokio::time::{interval, Duration};
 use crate::{app::AppState, db::queries, api::events::SseEvent, pipeline::trigger};
 use crate::notifications::{self, telegram::TelegramEvent};
 
+const MAX_CONCURRENT: usize = 5;
+const ACTIVE_STATUSES: &[&str] = &[
+    "processing", "downloading", "checkpoint_download",
+    "transcoding", "checkpoint_transcode", "uploading",
+];
+
 pub async fn scheduler_loop(state: Arc<AppState>) {
-    let mut ticker = interval(Duration::from_secs(30));
+    let mut ticker = interval(Duration::from_secs(15));
     loop {
         ticker.tick().await;
         if let Err(e) = scheduler_tick(state.clone()).await {
@@ -14,24 +20,22 @@ pub async fn scheduler_loop(state: Arc<AppState>) {
 }
 
 async fn scheduler_tick(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error>> {
-    let processing_statuses = [
-        "processing", "downloading", "checkpoint_download",
-        "transcoding", "checkpoint_transcode", "uploading",
-    ];
-    let active_jobs = queries::list_jobs_by_statuses(&state.db, &processing_statuses).await?;
+    let active_count = queries::count_jobs_by_statuses(&state.db, ACTIVE_STATUSES).await?;
+    let slots = MAX_CONCURRENT.saturating_sub(active_count as usize);
 
-    if !active_jobs.is_empty() {
-        // Active job exists — log and continue monitoring
-        for job in &active_jobs {
-            tracing::debug!("Job {} still active (status: {})", job.id, job.status);
-        }
+    if slots == 0 {
+        // All slots full — nothing to do
         broadcast_queue_update(&state).await?;
         return Ok(());
     }
 
-    // Pick next queued job
-    if let Some(job) = queries::get_next_queued_job(&state.db).await? {
-        tracing::info!("Picking up queued job {}", job.id);
+    tracing::info!("Active: {}, slots remaining: {}", active_count, slots);
+
+    for _ in 0..slots {
+        let job = match queries::get_next_queued_job(&state.db).await? {
+            Some(j) => j,
+            None => break,
+        };
 
         queries::update_job_status(&state.db, &job.id, "processing").await?;
         queries::insert_job_event(

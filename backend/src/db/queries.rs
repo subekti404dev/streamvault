@@ -153,6 +153,19 @@ pub async fn list_jobs_by_statuses(pool: &SqlitePool, statuses: &[&str]) -> AppR
     Ok(q.fetch_all(pool).await?)
 }
 
+
+pub async fn count_jobs_by_statuses(pool: &SqlitePool, statuses: &[&str]) -> AppResult<i64> {
+    let placeholders: Vec<String> = (0..statuses.len()).map(|_| "?".to_string()).collect();
+    let sql = format!(
+        "SELECT COUNT(*) FROM jobs WHERE status IN ({})",
+        placeholders.join(",")
+    );
+    let mut q = sqlx::query_scalar::<_, i64>(&sql);
+    for s in statuses {
+        q = q.bind(s);
+    }
+    Ok(q.fetch_one(pool).await?)
+}
 pub async fn get_next_queued_job(pool: &SqlitePool) -> AppResult<Option<Job>> {
     Ok(sqlx::query_as::<_, Job>(
         "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
