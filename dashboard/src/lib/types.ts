@@ -14,6 +14,7 @@ export interface Job {
   transcode_pct?: number | null;
   upload_pct?: number | null;
   last_checkpoint?: string | null;
+  gh_run_id?: string | null;
   video_resolution?: string | null;
   duration_seconds?: number | null;
   error_message?: string | null;
@@ -60,10 +61,10 @@ export interface QueueList {
   completed: Job[];
   failed: Job[];
 }
-
 export interface JobDetail {
   job: Job;
   events: JobEvent[];
+  gh_repo?: string | null;
 }
 
 export type AppSettings = Record<string, string>;

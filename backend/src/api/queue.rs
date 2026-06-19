@@ -2,7 +2,7 @@ use axum::{Json, extract::{State, Path}};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::{app::AppState, db::queries, error::{AppResult, AppError}};
+use crate::{app::AppState, db::queries, error::{AppResult, AppError}, pipeline::trigger::get_setting_or_env};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateJobRequest {
@@ -37,6 +37,7 @@ pub struct QueueListResponse {
 pub struct JobDetailResponse {
     pub job: queries::Job,
     pub events: Vec<queries::JobEvent>,
+    pub gh_repo: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -113,7 +114,6 @@ pub async fn list_jobs(
 
     Ok(Json(QueueListResponse { processing, queued, completed, failed }))
 }
-
 pub async fn get_job(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -121,8 +121,9 @@ pub async fn get_job(
     let job = queries::get_job(&state.db, &id).await
         .map_err(|_| AppError::NotFound(format!("Job {} not found", id)))?;
     let events = queries::get_job_events(&state.db, &id).await?;
+    let gh_repo = get_setting_or_env(&state, "gh_repo").await?.filter(|repo| !repo.is_empty());
 
-    Ok(Json(JobDetailResponse { job, events }))
+    Ok(Json(JobDetailResponse { job, events, gh_repo }))
 }
 
 pub async fn retry_job(

@@ -119,7 +119,7 @@
     {:else if currentRoute === 'queue'}
       <QueuePage {addToast} {navigate} />
     {:else if currentRoute === 'job'}
-      <JobDetailPage id={routeParams.id || ''} {addToast} />
+      <JobDetailPage id={routeParams.id || ''} {addToast} {navigate} />
     {:else if currentRoute === 'settings'}
       <SettingsPage {addToast} />
     {/if}

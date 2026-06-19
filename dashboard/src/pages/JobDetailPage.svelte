@@ -4,20 +4,23 @@
   import type { Job, JobEvent } from '../lib/types';
   import { statusLabel, statusColor, formatDuration } from '../lib/types';
 
-  let { id, addToast }: {
+  let { id, addToast, navigate }: {
     id: string;
     addToast: (msg: string, type?: string) => void;
+    navigate: (e: Event) => void;
   } = $props();
 
   let job = $state<Job | null>(null);
   let events = $state<JobEvent[]>([]);
   let loading = $state(true);
+  let ghRepo = $state<string | null>(null);
 
   async function loadJob() {
     try {
       const data = await api.getJob(id);
       job = data.job;
       events = data.events;
+      ghRepo = data.gh_repo ?? null;
     } catch (e: any) {
       addToast(`Failed to load job: ${e.message}`, 'error');
     } finally {
@@ -60,6 +63,36 @@
     return new Date(t).toLocaleString();
   }
 
+  const activeStatuses = new Set([
+    'processing', 'downloading', 'checkpoint_download',
+    'transcoding', 'checkpoint_transcode', 'uploading',
+  ]);
+
+  function isActiveStatus(status: string): boolean {
+    return activeStatuses.has(status);
+  }
+
+  function githubRunUrl(): string | null {
+    if (!job?.gh_run_id || job.gh_run_id === 'pending' || !ghRepo) return null;
+    return `https://github.com/${ghRepo}/actions/runs/${job.gh_run_id}`;
+  }
+
+  function eventLabel(type: string): string {
+    const labels: Record<string, string> = {
+      status_change: 'Status',
+      progress: 'Progress',
+      checkpoint: 'Checkpoint',
+      error: 'Error',
+    };
+    return labels[type] || type.replace(/_/g, ' ');
+  }
+
+  function eventMessage(event: JobEvent): string {
+    const message = (event.message ?? '').trim().replace(/\s+/g, ' ');
+    if (!message) return '';
+    return message.length > 180 ? `${message.slice(0, 180)}…` : message;
+  }
+
   function eventIcon(type: string): string {
     const icons: Record<string, string> = { status_change: '○', progress: '▶', checkpoint: '💾', error: '✗' };
     return icons[type] || '•';
@@ -71,8 +104,7 @@
   }
 </script>
 
-<div class="page">
-  <a href="#queue" class="back-link">← Back to Queue</a>
+  <a href="#queue" onclick={navigate} class="back-link">← Back to Queue</a>
 
   {#if loading}
     <div class="glass-card"><p class="text-muted">Loading...</p></div>
@@ -142,7 +174,7 @@
       </div>
     {/if}
 
-    {#if ['processing','downloading','transcoding','uploading','checkpoint_download','checkpoint_transcode'].includes(job.status)}
+    {#if isActiveStatus(job.status)}
       <div class="glass-card">
         <h3>Progress</h3>
         <div class="phase-block">
@@ -163,8 +195,19 @@
           </div>
         </div>
       </div>
+      {#if job.gh_run_id}
+        <div class="ci-card">
+          <span class="ci-label">GitHub Actions</span>
+          {#if job.gh_run_id === 'pending'}
+            <span class="text-muted">CI run is being created…</span>
+          {:else if ghRepo}
+            <a href={githubRunUrl()} target="_blank" rel="noreferrer" class="ci-link">Open CI run ↗</a>
+          {:else}
+            <span class="text-muted">GitHub repo not configured</span>
+          {/if}
+        </div>
+      {/if}
     {/if}
-
     <div class="glass-card">
       <h3>Details</h3>
       <div class="detail-grid">
@@ -179,11 +222,10 @@
         {/if}
       </div>
     </div>
-
     <div class="glass-card">
-      <h3>Event Timeline</h3>
+      <h3>Logs & Events</h3>
       {#if events.length === 0}
-        <p class="text-muted">No events yet.</p>
+        <p class="text-muted">No logs yet.</p>
       {:else}
         <div class="timeline">
           {#each events as event}
@@ -192,12 +234,12 @@
               <div class="timeline-content">
                 <div class="timeline-header">
                   <span class="timeline-event" style="color:{eventColor(event.event_type)};">
-                    {eventIcon(event.event_type)} {event.event_type}
+                    {eventIcon(event.event_type)} {eventLabel(event.event_type)}
                   </span>
                   <span class="timeline-time">{formatTime(event.created_at)}</span>
                 </div>
-                {#if event.message}
-                  <p class="timeline-message">{event.message}</p>
+                {#if eventMessage(event)}
+                  <p class="timeline-message">{eventMessage(event)}</p>
                 {/if}
                 {#if event.progress_pct != null}
                   <div class="progress-bar" style="margin-top:0.3rem; max-width:200px;">
@@ -211,11 +253,17 @@
       {/if}
     </div>
   {/if}
-</div>
-
 <style>
-  .page { max-width: 800px; margin: 0 auto; }
-  .back-link { color: var(--text-secondary); text-decoration: none; font-size: 0.875rem; display: inline-block; margin-bottom: 1rem; }
+  .phase-block { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+  .phase-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+  .phase-row span:first-child { min-width: 80px; color: var(--text-secondary); }
+  .phase-row .progress-bar { flex: 1; }
+  .phase-row span:last-child { min-width: 40px; text-align: right; color: var(--text-secondary); }
+  .ci-card { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding: 0.75rem; border: 1px solid rgba(99,102,241,0.25); border-radius: var(--radius-md); background: rgba(99,102,241,0.08); }
+  .ci-label { font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+  .ci-link { color: #93c5fd; text-decoration: none; font-weight: 600; }
+  .ci-link:hover { text-decoration: underline; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
   .back-link:hover { color: var(--text-primary); }
   .glass-card { padding: 1.25rem; margin-bottom: 1rem; }
   .stream-card { border-color: rgba(16,185,129,0.3); }
@@ -253,6 +301,6 @@
   .timeline-header { display: flex; justify-content: space-between; }
   .timeline-event { font-size: 0.8rem; font-weight: 500; }
   .timeline-time { font-size: 0.75rem; color: var(--text-muted); }
-  .timeline-message { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem; }
+  .timeline-message { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem; white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,0.12); border-radius: var(--radius-sm); padding: 0.35rem 0.5rem; }
   .text-muted { color: var(--text-muted); }
 </style>
