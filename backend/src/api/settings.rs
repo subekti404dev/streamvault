@@ -31,6 +31,7 @@ pub async fn get_settings(
                 "gh_repo" => config.gh_repo.clone(),
                 "discord_bot_token" => config.discord_bot_token.clone(),
                 "discord_channel_id" => config.discord_channel_id.clone(),
+                "discord_channel_ids" => config.discord_channel_ids.clone(),
                 "telegram_bot_token" => config.telegram_bot_token.clone(),
                 "telegram_channel_id" => config.telegram_channel_id.clone(),
                 "torrentio_base_url" => config.torrentio_base_url.clone(),
