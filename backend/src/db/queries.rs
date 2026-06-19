@@ -27,6 +27,8 @@ pub struct Job {
     pub gh_run_id: Option<String>,
     pub gh_artifact_id_dl: Option<String>,
     pub gh_artifact_id_tc: Option<String>,
+    pub gh_artifact_dl_url: Option<String>,
+    pub gh_artifact_tc_url: Option<String>,
     pub discord_channel_id: Option<String>,
     pub video_resolution: Option<String>,
     pub duration_seconds: Option<f64>,
@@ -174,24 +176,30 @@ pub async fn update_job_progress(pool: &SqlitePool, id: &str, phase: &str, pct: 
     Ok(())
 }
 
-pub async fn update_job_checkpoint(pool: &SqlitePool, id: &str, checkpoint: &str, artifact_id: Option<&str>) -> AppResult<()> {
+pub async fn update_job_checkpoint(pool: &SqlitePool, id: &str, checkpoint: &str, artifact_id: Option<&str>, file_url: Option<&str>) -> AppResult<()> {
     if !["download", "transcode"].contains(&checkpoint) {
         return Ok(());
     }
     let new_status = format!("checkpoint_{}", checkpoint);
-    let artifact_col = match checkpoint {
+    let artifact_id_col = match checkpoint {
         "download" => "gh_artifact_id_dl",
         "transcode" => "gh_artifact_id_tc",
         _ => unreachable!(),
     };
+    let artifact_url_col = match checkpoint {
+        "download" => "gh_artifact_dl_url",
+        "transcode" => "gh_artifact_tc_url",
+        _ => unreachable!(),
+    };
     let sql = format!(
-        "UPDATE jobs SET last_checkpoint = ?, status = ?, {} = ?, updated_at = datetime('now') WHERE id = ?",
-        artifact_col
+        "UPDATE jobs SET last_checkpoint = ?, status = ?, {} = ?, {} = ?, updated_at = datetime('now') WHERE id = ?",
+        artifact_id_col, artifact_url_col
     );
     sqlx::query(&sql)
         .bind(checkpoint)
         .bind(&new_status)
         .bind(artifact_id)
+        .bind(file_url)
         .bind(id)
         .execute(pool).await?;
     Ok(())

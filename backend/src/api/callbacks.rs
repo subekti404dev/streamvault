@@ -60,8 +60,10 @@ pub async fn checkpoint_callback(
         .ok_or_else(|| AppError::BadRequest("Missing checkpoint field".into()))?;
     let artifact_id = body.get("artifact_id")
         .and_then(|v| v.as_str());
+    let file_url = body.get("file_url")
+        .and_then(|v| v.as_str());
 
-    queries::update_job_checkpoint(&state.db, &id, checkpoint, artifact_id).await?;
+    queries::update_job_checkpoint(&state.db, &id, checkpoint, artifact_id, file_url).await?;
 
     queries::insert_job_event(
         &state.db, &id, Some(checkpoint), "checkpoint",

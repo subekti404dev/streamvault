@@ -2,7 +2,7 @@ use axum::{Json, extract::{State, Path}};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::{app::AppState, db::queries, error::{AppResult, AppError}, notifications, notifications::telegram::TelegramEvent, pipeline::trigger::get_setting_or_env};
+use crate::{app::AppState, db::queries, error::{AppResult, AppError}, notifications, notifications::telegram::TelegramEvent, pipeline::trigger, pipeline::trigger::get_setting_or_env};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateJobRequest {
@@ -142,20 +142,37 @@ pub async fn retry_job(
         return Err(AppError::BadRequest("Can only retry failed jobs".into()));
     }
 
-    // Reset to queued
-    queries::update_job_status(&state.db, &id, "queued").await?;
-    queries::update_job_progress(&state.db, &id, "download", 0).await?;
+    let skip_download = job.last_checkpoint.as_deref() == Some("download")
+        || job.last_checkpoint.as_deref() == Some("transcode");
+    let skip_transcode = job.last_checkpoint.as_deref() == Some("transcode");
 
     queries::insert_job_event(
         &state.db, &id, None, "status_change",
-        &format!("Retry queued (last checkpoint: {:?})", job.last_checkpoint),
+        &format!("Retry triggered (last checkpoint: {:?}, skip_dl: {}, skip_tc: {})",
+            job.last_checkpoint, skip_download, skip_transcode),
         None,
     ).await?;
 
-    Ok(Json(RetryResponse {
-        job_id: id,
-        status: "queued".to_string(),
-    }))
+    // Trigger pipeline with skip flags instead of resetting to queued
+    match trigger::trigger_pipeline(&state, &job, skip_download, skip_transcode).await {
+        Ok(run_id) => {
+            queries::update_job_status(&state.db, &id, "processing").await?;
+            queries::insert_job_event(
+                &state.db, &id, None, "status_change",
+                &format!("Retry pipeline triggered (run_id: {})", run_id), None,
+            ).await?;
+
+            let _ = state.event_tx.send(crate::api::events::SseEvent::JobRetried {
+                job_id: id.clone(),
+            });
+
+            Ok(Json(RetryResponse {
+                job_id: id,
+                status: "processing".to_string(),
+            }))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn delete_job(

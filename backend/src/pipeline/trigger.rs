@@ -96,6 +96,8 @@ pub async fn trigger_pipeline(
             "discord_channel_id": discord_channel,
             "skip_download": skip_download.to_string(),
             "skip_transcode": skip_transcode.to_string(),
+            "checkpoint_dl_url": job.gh_artifact_dl_url.clone().unwrap_or_default(),
+            "checkpoint_tc_url": job.gh_artifact_tc_url.clone().unwrap_or_default(),
         }
     });
 

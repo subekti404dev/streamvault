@@ -13,6 +13,8 @@ RUN apt-get update -qq \
         bc \
         ffmpeg \
         transmission-daemon \
+        gh \
+        unzip \
         transmission-cli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

@@ -164,15 +164,28 @@
         <h3>Error Details</h3>
         <p>{job.error_message || 'Unknown error'}</p>
         <div style="margin-top:0.75rem;">
-          <p class="text-muted" style="font-size:0.8rem;">
-            Last checkpoint: {job.last_checkpoint || 'None'} &mdash; 
-            Will resume from this point on retry.
-          </p>
-          <button class="btn btn-success" onclick={retryJob}>Retry from Checkpoint</button>
+          {#if job.last_checkpoint}
+            <p class="text-muted" style="font-size:0.8rem;">
+              Last checkpoint: {job.last_checkpoint}
+            </p>
+            <p class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+              Resume from checkpoint -&gt;
+              {#if job.last_checkpoint === 'transcode'}
+                Skip download &amp; transcode, langsung upload
+              {:else}
+                Skip download, lanjut transcode
+              {/if}
+            </p>
+          {:else}
+            <p class="text-muted" style="font-size:0.8rem;">
+              No checkpoint available — will process from start.
+            </p>
+          {/if}
+          <button class="btn btn-success" onclick={retryJob} style="margin-top:0.5rem;">
+            Resume from Checkpoint
+          </button>
           <button class="btn btn-danger" onclick={deleteJob} style="margin-left:0.5rem;">Remove</button>
         </div>
-      </div>
-    {/if}
 
     {#if isActiveStatus(job.status)}
       <div class="glass-card">
