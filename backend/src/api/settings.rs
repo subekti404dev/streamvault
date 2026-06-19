@@ -97,16 +97,19 @@ pub async fn update_settings(
 pub async fn test_notification(
     State(state): State<Arc<AppState>>,
 ) -> AppResult<Json<Value>> {
-    // Verify Telegram is configured before sending
+    let config = state.config.read().await;
+
     let bot_token = queries::get_setting(&state.db, "telegram_bot_token").await?
         .filter(|t| !t.is_empty())
-        .or_else(|| state.config.blocking_read().telegram_bot_token.clone())
+        .or_else(|| config.telegram_bot_token.clone())
         .ok_or_else(|| AppError::BadRequest("Telegram bot token not configured".into()))?;
 
     let channel_id = queries::get_setting(&state.db, "telegram_channel_id").await?
         .filter(|t| !t.is_empty())
-        .or_else(|| state.config.blocking_read().telegram_channel_id.clone())
+        .or_else(|| config.telegram_channel_id.clone())
         .ok_or_else(|| AppError::BadRequest("Telegram channel ID not configured".into()))?;
+
+    drop(config);
 
     // Send a test message directly
     let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
