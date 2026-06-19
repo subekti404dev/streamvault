@@ -186,6 +186,8 @@
           </button>
           <button class="btn btn-danger" onclick={deleteJob} style="margin-left:0.5rem;">Remove</button>
         </div>
+      </div>
+    {/if}
 
     {#if isActiveStatus(job.status)}
       <div class="glass-card">
