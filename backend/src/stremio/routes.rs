@@ -32,16 +32,32 @@ pub async fn catalog_handler(
     let completed = queries::list_jobs_by_status(&state.db, "completed").await
         .unwrap_or_default();
 
-    let metas: Vec<MetaPreview> = completed.into_iter()
-        .filter(|j| j.media_type == type_)
-        .map(|j| MetaPreview {
-            id: j.imdb_id.clone(),
-            type_: type_.clone(),
-            name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
-            poster: j.poster_url.clone(),
-            year: None,
-        })
-        .collect();
+    let metas: Vec<MetaPreview> = match type_.as_str() {
+        "movie" => completed.iter()
+            .filter(|j| j.media_type == "movie")
+            .map(|j| MetaPreview {
+                id: j.imdb_id.clone(),
+                type_: "movie".into(),
+                name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
+                poster: None,
+                year: None,
+            })
+            .collect(),
+        "series" => {
+            let mut seen = std::collections::HashSet::new();
+            completed.iter()
+                .filter(|j| j.media_type == "series" && seen.insert(&j.imdb_id))
+                .map(|j| MetaPreview {
+                    id: j.imdb_id.clone(),
+                    type_: "series".into(),
+                    name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
+                    poster: None,
+                    year: None,
+                })
+                .collect()
+        }
+        _ => vec![],
+    };
 
     Json(MetaResponse { metas })
 }
@@ -49,29 +65,23 @@ pub async fn catalog_handler(
 pub async fn meta_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Path((type_, imdb_id)): axum::extract::Path<(String, String)>,
-) -> Json<MetaResponse> {
-    // Strip .json suffix if present
-    let imdb_id = imdb_id.strip_suffix(".json").unwrap_or(&imdb_id).to_string();
-    let cached = match queries::get_cached_meta(&state.db, &imdb_id, &type_).await {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!("Failed to fetch cached meta for {}: {}", imdb_id, e);
-            return Json(MetaResponse { metas: vec![] });
+) -> Json<serde_json::Value> {
+    let imdb_id = imdb_id.strip_suffix(".json").unwrap_or(&imdb_id);
+    let url = format!("https://v3-cinemeta.strem.io/meta/{}/{}.json", type_, imdb_id);
+
+    match state.http.get(&url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            let mut body: serde_json::Value = resp.json().await.unwrap_or_default();
+            // Mark as available in StreamVault
+            if let Some(meta) = body.get_mut("meta") {
+                if let Some(obj) = meta.as_object_mut() {
+                    obj.insert("streamVault".into(), serde_json::json!({"available": true}));
+                }
+            }
+            Json(body)
         }
-    };
-
-    let metas = match cached {
-        Some(c) => vec![MetaPreview {
-            id: imdb_id,
-            type_: type_,
-            name: c.title.unwrap_or_else(|| "Unknown".to_string()),
-            poster: c.poster_url,
-            year: c.year,
-        }],
-        None => vec![],
-    };
-
-    Json(MetaResponse { metas })
+        _ => Json(serde_json::json!({"meta": {}})),
+    }
 }
 
 pub async fn stream_handler(
