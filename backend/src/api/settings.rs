@@ -59,6 +59,10 @@ pub async fn update_settings(
     Json(body): Json<HashMap<String, String>>,
 ) -> AppResult<Json<Value>> {
     for (key, value) in &body {
+        // Skip masked values — user didn't actually change them
+        if value.contains("****") {
+            continue;
+        }
         queries::upsert_setting(&state.db, key, value).await?;
     }
 
