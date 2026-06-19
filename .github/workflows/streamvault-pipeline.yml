@@ -159,13 +159,19 @@ jobs:
           echo "Input file: $INPUT_FILE"
           echo "File size: $(du -h "$INPUT_FILE" | cut -f1)"
 
-          SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
-            -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
-
-          if [ "$SOURCE_HEIGHT" = "0" ] || [ -z "$SOURCE_HEIGHT" ]; then
-            echo "⚠ WARNING: Could not determine video height, trying alternative method"
-            SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 \
-              -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$INPUT_FILE" 2>/dev/null || echo "0")
+          # Try resolution from filename (e.g., ...1080p...)
+          BASE_NAME=$(basename "$INPUT_FILE")
+          if [[ "$BASE_NAME" =~ ([0-9]{3,4})p ]]; then
+            SOURCE_HEIGHT="${BASH_REMATCH[1]}"
+            echo "⚡ Detected resolution from filename: ${SOURCE_HEIGHT}p"
+          else
+            # Determine highest video stream height (handles multiple streams)
+            SOURCE_HEIGHT=$(ffprobe -v error -select_streams v -show_entries stream=height -of csv=p=n "$INPUT_FILE" 2>/dev/null | sort -nr | head -n1 || echo "0")
+            if [ -z "$SOURCE_HEIGHT" ] || [ "$SOURCE_HEIGHT" = "0" ]; then
+              echo "⚠ WARNING: Could not determine video height, trying alternative method"
+              # fallback to original single-stream detection
+              SOURCE_HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=n:0 "$INPUT_FILE" 2>/dev/null || echo "0")
+            fi
           fi
 
           echo "source_height=$SOURCE_HEIGHT" >> "$GITHUB_OUTPUT"
