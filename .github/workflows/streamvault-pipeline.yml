@@ -70,22 +70,15 @@ env:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository }}/pipeline-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 1440
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          echo "nameserver 9.9.9.9" | sudo tee /etc/resolv.conf
-          sudo apt-get update -qq \
-            -o Acquire::Retries=3 \
-            -o Acquire::http::Timeout=30 \
-            -o Acquire::https::Timeout=30
-          sudo apt-get install -y -qq --no-install-recommends \
-            jq bc ffmpeg transmission-daemon transmission-cli
       - name: Restore download checkpoint
         if: inputs.skip_download == 'true'
         uses: actions/download-artifact@v4
