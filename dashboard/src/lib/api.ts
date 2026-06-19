@@ -84,6 +84,17 @@ export const api = {
     });
   },
 
+  testTelegramNotification: async (): Promise<void> => {
+    const r = await fetch(`${BASE}/settings/test-notification`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({ error: r.statusText }));
+      throw new Error(body.error || `HTTP ${r.status}`);
+    }
+  },
+
   searchCatalog: async (query: string, baseUrl: string): Promise<StremioCatalogResponse> => {
     const encodedQuery = encodeURIComponent(query);
     const [movieRes, seriesRes] = await Promise.all([

@@ -1,7 +1,7 @@
 use axum::{Json, extract::{State, Path}};
 use serde_json::Value;
 use std::sync::Arc;
-use crate::{app::AppState, db::queries, error::{AppResult, AppError}, api::events::SseEvent};
+use crate::{app::AppState, db::queries, error::{AppResult, AppError}, api::events::SseEvent, notifications, notifications::telegram::TelegramEvent};
 
 pub async fn progress_callback(
     State(state): State<Arc<AppState>>,
@@ -69,9 +69,18 @@ pub async fn checkpoint_callback(
     ).await?;
 
     let _ = state.event_tx.send(SseEvent::JobCheckpoint {
-        job_id: id,
+        job_id: id.clone(),
         checkpoint: checkpoint.to_string(),
     });
+
+    // Telegram notification
+    let title = queries::get_job(&state.db, &id).await
+        .ok()
+        .and_then(|j| j.title)
+        .unwrap_or_default();
+    notifications::send_notification(&state, TelegramEvent::CheckpointSaved(
+        title, checkpoint.to_string(),
+    ));
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }
@@ -99,6 +108,14 @@ pub async fn complete_callback(
         job_id: id.clone(),
     });
 
+    // Telegram notification
+    let title = queries::get_job(&state.db, &id).await
+        .ok()
+        .and_then(|j| j.title)
+        .unwrap_or_default();
+    let details = format!("{} resolution, {:.0}s duration", resolution, duration);
+    notifications::send_notification(&state, TelegramEvent::JobCompleted(title, details));
+
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -119,9 +136,17 @@ pub async fn failed_callback(
     ).await?;
 
     let _ = state.event_tx.send(SseEvent::JobFailed {
-        job_id: id,
+        job_id: id.clone(),
         error: error_msg.to_string(),
     });
+
+    // Telegram notification
+    let job = queries::get_job(&state.db, &id).await.ok();
+    let title = job.as_ref().and_then(|j| j.title.clone()).unwrap_or_default();
+    let phase = job.as_ref().and_then(|j| j.current_phase.clone()).unwrap_or_default();
+    notifications::send_notification(&state, TelegramEvent::JobFailed(
+        title, phase, error_msg.to_string(),
+    ));
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }

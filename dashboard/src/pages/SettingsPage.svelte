@@ -8,6 +8,7 @@
   let settings = $state<AppSettings>({});
   let loading = $state(true);
   let saving = $state(false);
+  let testing = $state(false);
 
   const fields = [
     { key: 'gh_token', label: 'GitHub Token', type: 'password', section: 'GitHub' },
@@ -48,6 +49,18 @@
     }
   }
 
+  async function testTelegram() {
+    testing = true;
+    try {
+      await api.testTelegramNotification();
+      addToast('Test notification sent! Check Telegram', 'success');
+    } catch (e: any) {
+      addToast(`Test failed: ${e.message}`, 'error');
+    } finally {
+      testing = false;
+    }
+  }
+
   function publicUrl(): string {
     return settings['public_base_url'] || (window.location.origin + window.location.pathname.replace(/\/$/, ''));
   }
@@ -79,6 +92,11 @@
             />
           </div>
         {/each}
+        {#if section === 'Telegram'}
+          <button class="btn btn-sm btn-test" onclick={testTelegram} disabled={testing}>
+            {testing ? 'Sending...' : '📨 Test Notification'}
+          </button>
+        {/if}
       </div>
     {/each}
 
@@ -114,5 +132,7 @@
   .install-url { display: flex; align-items: center; gap: 0.5rem; }
   .install-url code { flex: 1; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); font-size: 0.8rem; word-break: break-all; }
   .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+  .btn-test { margin-top: 0.75rem; background: rgba(44, 168, 255, 0.15); color: var(--accent); border: 1px solid rgba(44, 168, 255, 0.3); }
+  .btn-test:hover:not(:disabled) { background: rgba(44, 168, 255, 0.25); }
   .text-muted { color: var(--text-muted); font-size: 0.85rem; }
 </style>

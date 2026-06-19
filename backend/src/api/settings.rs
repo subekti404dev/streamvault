@@ -2,7 +2,7 @@ use axum::{Json, extract::State};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::collections::HashMap;
-use crate::{app::AppState, db::queries, error::AppResult};
+use crate::{app::AppState, db::queries, error::{AppResult, AppError}};
 
 pub async fn get_settings(
     State(state): State<Arc<AppState>>,
@@ -17,8 +17,10 @@ pub async fn get_settings(
         "gh_token", "gh_repo",
         "discord_bot_token", "discord_channel_id",
         "telegram_bot_token", "telegram_channel_id",
+        "notifications_enabled",
         "torrentio_base_url",
         "public_base_url",
+        "stremio_addon_id", "stremio_addon_name", "stremio_metadata_url",
     ];
 
     let mut map: HashMap<String, String> = HashMap::new();
@@ -89,6 +91,43 @@ pub async fn update_settings(
     }
 
     Ok(Json(json!({ "status": "saved" })))
+}
+
+pub async fn test_notification(
+    State(state): State<Arc<AppState>>,
+) -> AppResult<Json<Value>> {
+    // Verify Telegram is configured before sending
+    let bot_token = queries::get_setting(&state.db, "telegram_bot_token").await?
+        .filter(|t| !t.is_empty())
+        .or_else(|| state.config.blocking_read().telegram_bot_token.clone())
+        .ok_or_else(|| AppError::BadRequest("Telegram bot token not configured".into()))?;
+
+    let channel_id = queries::get_setting(&state.db, "telegram_channel_id").await?
+        .filter(|t| !t.is_empty())
+        .or_else(|| state.config.blocking_read().telegram_channel_id.clone())
+        .ok_or_else(|| AppError::BadRequest("Telegram channel ID not configured".into()))?;
+
+    // Send a test message directly
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
+    let resp = state.http.post(&url)
+        .json(&serde_json::json!({
+            "chat_id": channel_id,
+            "text": "🔔 <b>StreamVault</b>\n\nTest notification — if you see this, Telegram is working!",
+            "parse_mode": "HTML"
+        }))
+        .send()
+        .await
+        .map_err(|e| AppError::Internal(format!("Telegram API request failed: {}", e)))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(AppError::Internal(format!(
+            "Telegram API error ({}): {}", status, body
+        )));
+    }
+
+    Ok(Json(json!({ "ok": true })))
 }
 
 fn mask_token(token: &str) -> String {

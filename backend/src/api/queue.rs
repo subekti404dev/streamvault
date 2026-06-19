@@ -2,7 +2,7 @@ use axum::{Json, extract::{State, Path}};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::{app::AppState, db::queries, error::{AppResult, AppError}, pipeline::trigger::get_setting_or_env};
+use crate::{app::AppState, db::queries, error::{AppResult, AppError}, notifications, notifications::telegram::TelegramEvent, pipeline::trigger::get_setting_or_env};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateJobRequest {
@@ -80,6 +80,11 @@ pub async fn create_job(
         job_id: job_id.clone(),
         title: new_job.title.clone().unwrap_or_default(),
     });
+
+    // Telegram notification
+    notifications::send_notification(&state, TelegramEvent::JobQueued(
+        new_job.title.clone().unwrap_or_default(),
+    ));
 
     Ok(Json(CreateJobResponse {
         job_id,
