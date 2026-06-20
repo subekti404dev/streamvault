@@ -171,15 +171,16 @@
                 <span class="text-muted" style="font-size:0.8rem;">{formatDuration(job.duration_seconds)}</span>
               {/if}
             </div>
-            <div style="display:flex; gap:0.5rem;">
-              <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
-              <a
-                href="/proxy/hls/{job.id}/master.m3u8"
-                target="_blank"
-                class="btn btn-sm btn-primary"
-                title="Open HLS stream"
-              >▶ Play</a>
-            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
+            <a
+              href="/proxy/hls/{job.id}/master.m3u8"
+              target="_blank"
+              class="btn btn-sm btn-primary"
+              title="Open HLS stream"
+            >▶ Play</a>
+            <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Delete</button>
           </div>
         </div>
       {/each}
