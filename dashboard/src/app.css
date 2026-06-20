@@ -21,6 +21,11 @@
   /* Geometry */
   --radius: 6px;
   --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* Compatibility aliases — remove after all component style blocks are rewritten */
+  --glass-border: var(--border);
+  --glass-hover: #222222;
 }
 
 * {
