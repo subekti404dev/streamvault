@@ -10,6 +10,7 @@
 |-----|--------|---------|
 | #4 docker/Dockerfile | ✅ Fixed | File sudah dihapus |
 | #5 static_files.rs | ✅ Fixed | File sudah dihapus |
+| #8 aria2c timeout | ✅ Fixed | Pipeline udah migrasi ke transmission-cli |
 | #15 AAC 5.1 → stereo | ✅ Fixed | `-ac 2` ditambahkan ke ffmpeg di pipeline |
 
 ### New Bugs
@@ -188,33 +189,11 @@ Preview `_` artinya Rust compiler tau ini sengaja diabaikan. Tujuan aslinya mung
 
 ---
 
-### 8. `aria2c` Timeout — No Timeout Config
+### 8. ~~`aria2c` Timeout — No Timeout Config~~ ✅ Fixed
 
-**Bug**: Di GHA workflow (`streamvault-pipeline.yml`), aria2c dipanggil tanpa timeout/seed limits. Bisa stuck selamanya kalo torrent besar atau tanpa peer.
-
-```yaml
-aria2c --seed-time=0 \
-    --select-file=...
-```
-
-Cuma `--seed-time=0` (stop seeding setelah download). Tapi gak ada `--max-download-limit`, `--connect-timeout`, `--max-connection-per-server`.
-
-**Dampak**: Download bisa gagal karena koneksi lambat tanpa retry/timeout yang proper.
-
-**Fix**: Tambah flag:
-
-```yaml
-aria2c --seed-time=0 \
-    --connect-timeout=30 \
-    --max-connection-per-server=4 \
-    --max-concurrent-downloads=1 \
-    --split=4 \
-    --summary-interval=10 \
-    ...
-```
+**Bug**: Pipeline dulu pake aria2c tanpa timeout. Udah diganti transmission-cli yang handle timeout & retry bawaan (via `monitor-transmission.sh`).
 
 ---
-
 ### 9. Upload Script Gagal Total Jika 1 File Gagal (upload-to-discord.sh)
 
 **Bug**: Di `upload-to-discord.sh`, kalo upload satu file gagal setelah semua retry, script cuma log error tapi lanjut ke file berikutnya. Tapi karena pake `set -e`, error dari `callback` bisa terminate script.
@@ -292,7 +271,7 @@ Ini nge-leak function ke global scope tanpa prefix atau dokumentasi. Kalau gak k
 | Level | Jumlah | Keterangan |
 |-------|--------|------------|
 | 🔴 Critical | 4 (1 fixed) | SQL injection, SSE broken, silent error, stale Dockerfile ✅ |
-| 🟠 Medium | 5 (1 fixed) | Dead code ✅, duplicate config, unused columns, timeout config, script brittle |
+| 🟠 Medium | 5 (2 fixed) | Dead code ✅, aria2c timeout ✅, duplicate config, unused columns, script brittle |
 | 🟡 Minor | 5 | AAC 5.1 ✅, missing derive, path config, global leak, prop mutation |
 
 ### Priority Fixes:
@@ -300,4 +279,3 @@ Ini nge-leak function ke global scope tanpa prefix atau dokumentasi. Kalau gak k
 1. **SQL Injection** (#1) — keamanan, harus fix ASAP
 2. **SSE Events** (#2) — frontend real-time rusak total
 3. **Upload script `set -e`** (#9) — pipeline gampang gagal
-4. **Aria2c timeout** (#8) — download bisa hang

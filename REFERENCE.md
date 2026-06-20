@@ -32,7 +32,7 @@ AAC audio must be **stereo (2-channel)** for browser MSE compatibility. Ffmpeg i
 
 | Aspect | MagnetVault | StreamVault |
 |--------|-------------|-------------|
-| Download method | librqbit (in-process) | GitHub Actions + aria2c (external) |
+| Download method | librqbit (in-process) | GitHub Actions + transmission-cli (external) |
 | Segment duration | 6s | 3s |
 | Audio | AAC (variable channels) | AAC **stereo** (`-ac 2`) |
 | HLS serving | Local filesystem | Discord CDN proxy (on-the-fly) |
@@ -151,7 +151,7 @@ MagnetVault doesn't need complex file detection because:
 ### StreamVault's Approach
 
 StreamVault needs robust file detection because:
-- Downloads happen externally (GHA + aria2c)
+- Downloads happen externally (GHA + transmission-cli)
 - Files are uploaded to Discord
 - Need to identify which file to transcode
 

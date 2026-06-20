@@ -24,7 +24,7 @@ User → Svelte Dashboard → Rust API (Axum) → GitHub Actions → Discord CDN
 
 - **Backend**: Rust (Axum) with SQLite, serves the Stremio addon, HLS proxy, and dashboard API
 - **Frontend**: Svelte 5 with glassmorphism UI, SSE real-time updates
-- **Pipeline**: GitHub Actions handles download (aria2c), transcode (ffmpeg → HLS), and upload to Discord
+- **Pipeline**: GitHub Actions handles download (transmission-cli), transcode (ffmpeg → HLS), and upload to Discord
 - **Storage**: HLS chunks stored permanently on Discord CDN, proxied through the backend
 
 ## Configuration
@@ -66,7 +66,7 @@ https://your-server.com/manifest.json
 
 1. **Search** — Enter IMDB ID → fetch metadata + torrents via Torrentio
 2. **Queue** — Select a torrent → job enters FIFO queue
-3. **Download** — GHA downloads via aria2c, saves checkpoint artifact
+3. **Download** — GHA downloads via transmission-cli, saves checkpoint artifact
 4. **Transcode** — ffmpeg converts to HLS (H.264 + AAC stereo @128k, 3s segments). Audio forced to stereo (`-ac 2`) for browser MSE compatibility.
 5. **Upload** — Each segment uploaded to Discord channel
 6. **Stream** — Stremio fetches HLS via the backend proxy. Playlist regenerated on-the-fly from DB; segments proxied from Discord CDN.
