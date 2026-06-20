@@ -46,8 +46,8 @@
 
 .toast-close {
   background: none; border: none; color: var(--text-secondary);
-  cursor: pointer; font-size: 1.1rem; opacity: 0.7;
-  padding: 0; line-height: 1; margin-left: auto;
+  cursor: pointer; font-size: 1.5rem; opacity: 0.7;
+  padding: 0.5rem; line-height: 1; margin-left: auto;
 }
 .toast-close:hover { opacity: 1; }
 
