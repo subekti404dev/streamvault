@@ -73,19 +73,19 @@
   <p class="page-subtitle">Real-time job monitoring and management</p>
 
   {#if loading}
-    <div class="glass-card"><p class="text-muted">Loading...</p></div>
+    <div class="card"><p class="text-muted">Loading...</p></div>
   {:else}
     {#if processing.length > 0}
       <h2 class="section-title">Processing</h2>
       {#each processing as job}
-        <div class="glass-card job-card">
+        <div class="job-card" style="border-left-color: #00E5A0;">
           <div class="job-header">
             <div>
               <strong>{job.title || job.imdb_id}</strong>
               {#if job.media_type === 'series' && job.season != null && job.episode != null}
                 <span class="badge episode-badge">S{String(job.season).padStart(2,'0')}E{String(job.episode).padStart(2,'0')}</span>
               {/if}
-              <span class="badge" style="background: rgba(245,158,11,0.2); color: #fbbf24; margin-left:0.5rem;">
+              <span class="badge">
                 {statusLabel(job.status)}
               </span>
             </div>
@@ -135,7 +135,7 @@
     {#if queued.length > 0}
       <h2 class="section-title">Queued ({queued.length})</h2>
       {#each queued as job, i}
-        <div class="glass-card job-card">
+        <div class="job-card" style="border-left-color: #F5C518;">
           <div class="job-header">
             <div>
               <span class="queue-pos">#{i + 1}</span>
@@ -144,7 +144,7 @@
                 <span class="badge episode-badge">S{String(job.season).padStart(2,'0')}E{String(job.episode).padStart(2,'0')}</span>
               {/if}
               {#if job.file_size_bytes}
-                <span class="text-muted" style="font-size:0.8rem; margin-left:0.5rem;">{formatBytes(job.file_size_bytes)}</span>
+                <span class="text-muted">{formatBytes(job.file_size_bytes)}</span>
               {/if}
             </div>
             <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>Cancel</button>
@@ -156,19 +156,19 @@
     {#if completed.length > 0}
       <h2 class="section-title">Completed ({completed.length})</h2>
       {#each completed as job}
-        <div class="glass-card job-card">
+        <div class="job-card" style="border-left-color: #4488FF;">
           <div class="job-header">
             <div>
-              <span class="badge" style="background:rgba(16,185,129,0.2);color:var(--success);">✓</span>
+              <span class="badge">✓</span>
               <strong>{job.title || job.imdb_id}</strong>
               {#if job.media_type === 'series' && job.season != null && job.episode != null}
                 <span class="badge episode-badge">S{String(job.season).padStart(2,'0')}E{String(job.episode).padStart(2,'0')}</span>
               {/if}
               {#if job.video_resolution}
-                <span class="text-muted" style="font-size:0.8rem; margin-left:0.5rem;">{job.video_resolution}</span>
+                <span class="text-muted">{job.video_resolution}</span>
               {/if}
               {#if job.duration_seconds}
-                <span class="text-muted" style="font-size:0.8rem;">{formatDuration(job.duration_seconds)}</span>
+                <span class="text-muted">{formatDuration(job.duration_seconds)}</span>
               {/if}
             </div>
           </div>
@@ -189,13 +189,13 @@
     {#if failed.length > 0}
       <h2 class="section-title">Failed ({failed.length})</h2>
       {#each failed as job}
-        <div class="glass-card job-card" style="border-color:rgba(239,68,68,0.3);">
+        <div class="job-card failed">
           <div class="job-header">
             <div>
-              <span class="badge" style="background:rgba(239,68,68,0.2);color:var(--danger);">✗</span>
+              <span class="badge">✗</span>
               <strong>{job.title || job.imdb_id}</strong>
               {#if job.error_message}
-                <span class="text-muted" style="font-size:0.8rem; margin-left:0.5rem;">{job.error_message}</span>
+                <span class="text-muted">{job.error_message}</span>
               {/if}
             </div>
             <div style="display:flex; gap:0.5rem;">
@@ -208,8 +208,8 @@
     {/if}
 
     {#if processing.length === 0 && queued.length === 0 && completed.length === 0 && failed.length === 0}
-      <div class="glass-card">
-        <p class="text-muted" style="text-align:center; padding:2rem;">No jobs yet. Search for a title and add it to the queue!</p>
+      <div class="card">
+        <p class="text-muted">No jobs yet. Search for a title and add it to the queue!</p>
       </div>
     {/if}
   {/if}
@@ -217,18 +217,88 @@
 
 <style>
   .page { max-width: 900px; margin: 0 auto; }
-  .page-title { font-size: 1.5rem; margin-bottom: 0.25rem; }
-  .page-subtitle { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem; }
-  .section-title { font-size: 1rem; margin: 1.5rem 0 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-  .job-card { padding: 1rem 1.25rem; margin-bottom: 0.5rem; }
-  .job-header { display: flex; align-items: center; justify-content: space-between; }
-  .phase-indicator { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+
+  .page-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 1.25rem; margin-bottom: 0.25rem;
+  }
+
+  .page-subtitle {
+    color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; font-weight: 600;
+    margin: 1.5rem 0 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem;
+  }
+
+  .job-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem; margin-bottom: 0.5rem;
+  }
+
+  .job-card.failed {
+    border-color: var(--danger); border-left-color: var(--danger);
+  }
+
+  .job-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .job-header strong {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
+  }
+
+  .phase-indicator {
+    display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem;
+  }
+
   .phase { flex: 1; }
-  .phase-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
-  .phase-arrow { color: var(--text-muted); font-size: 1.2rem; padding-bottom: 0.5rem; }
-  .job-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border); font-size: 0.8rem; }
-  .queue-pos { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(99,102,241,0.2); color: var(--accent); font-size: 0.7rem; font-weight: 600; margin-right: 0.4rem; }
-  .episode-badge { background: rgba(139,92,246,0.2); color: #a78bfa; margin-left: 0.4rem; }
-  .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
-  .text-muted { color: var(--text-muted); }
+
+  .phase-label {
+    display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    color: var(--text-secondary); margin-bottom: 0.3rem;
+  }
+
+  .phase-arrow {
+    color: var(--text-muted); font-size: 1rem; padding-bottom: 0.5rem;
+  }
+
+  .job-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 0.75rem; padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+
+  .queue-pos {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+    border: 1px solid var(--accent); border-radius: var(--radius-sm);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; font-weight: 600;
+    margin-right: 0.4rem;
+  }
+
+  .episode-badge {
+    border-color: #555555; color: var(--text-secondary); margin-left: 0.4rem;
+  }
+
+  @media (max-width: 639px) {
+    .job-footer {
+      flex-direction: column; gap: 0.5rem; align-items: flex-start;
+    }
+  }
 </style>
