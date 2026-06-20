@@ -88,7 +88,7 @@
               {#if field.type === 'checkbox'}
                 <input type="checkbox" id={field.key} checked={settings[field.key] === 'true' || settings[field.key] === '1'} onchange={(e) => settings[field.key] = e.currentTarget.checked ? 'true' : 'false'} />
               {:else}
-                <input type={field.type} id={field.key} bind:value={settings[field.key] ?? ''} placeholder={field.placeholder ?? ''} />
+                <input type={field.type} id={field.key} bind:value={settings[field.key]} placeholder={field.placeholder ?? ''} />
               {/if}
             </div>
           {/each}
