@@ -244,7 +244,7 @@ jobs:
             -c:a aac -b:a 128k \
             -vf "scale=-2:$TARGET_HEIGHT" \
             -force_key_frames "expr:eq(mod(n,72),0)" \
-            -hls_time 6 \
+            -hls_time 3 \
             -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
@@ -267,8 +267,7 @@ jobs:
                 NOW=$(date +%s)
                 if [ $(( NOW - LAST_REPORT )) -ge 10 ]; then
                   .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
-                    "{\"phase\":\"transcode\",\"progress_pct\":$PCT_INT}"
-                  LAST_REPORT=$NOW
+                    "$(jq -n --arg p 'transcode' --argjson pp "$PCT_INT" '{phase: $p, progress_pct: $pp}')"
                   echo "Transcode: ${PCT}% (${TIMESTAMP})"
                 fi
               fi
