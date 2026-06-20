@@ -104,6 +104,7 @@
   }
 </script>
 
+<div class="page">
   <a href="#queue" onclick={navigate} class="back-link">← Back to Queue</a>
 
   {#if loading}
@@ -258,7 +259,10 @@
       {/if}
     </div>
   {/if}
+</div>
 <style>
+.page { max-width: 900px; margin: 0 auto; }
+
 .card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem;
@@ -326,8 +330,6 @@
 .ci-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
 .ci-link { color: var(--info); text-decoration: none; font-weight: 600; }
 .ci-link:hover { text-decoration: underline; }
-
-.text-muted { color: var(--text-muted); }
 
 /* Terminal log event styling */
 .log-time { color: var(--text-muted); margin-right: 0.5rem; }
