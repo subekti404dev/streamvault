@@ -246,6 +246,7 @@
     width: 8px;
     height: 8px;
     display: inline-block;
+    border-radius: 50%;
   }
 
   .connection-dot.connected {
@@ -280,6 +281,14 @@
     .nav-link {
       font-size: 0.75rem;
       padding: 0.3rem 0.5rem;
+    }
+
+    .login-screen {
+      padding: 1rem;
+    }
+
+    .login-card {
+      padding: 1.5rem;
     }
   }
 </style>
