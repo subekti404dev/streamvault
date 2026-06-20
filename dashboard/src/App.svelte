@@ -35,7 +35,12 @@
       routeParams = { id: rest[0] };
     }
     history.replaceState(null, '', window.location.pathname + href);
+    closeDrawer();
   }
+  let drawerOpen = $state(false);
+
+  function toggleDrawer() { drawerOpen = !drawerOpen; }
+  function closeDrawer() { drawerOpen = false; }
 
   function handleLogin() {
     if (!loginInput.trim()) {
@@ -63,10 +68,10 @@
     return () => disconnectSSE();
   });
 
-  // Global keyboard shortcut: Escape to dismiss last toast
   function onKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && toasts.length > 0) {
-      toasts = toasts.slice(0, -1);
+    if (e.key === 'Escape') {
+      if (drawerOpen) { closeDrawer(); return; }
+      if (toasts.length > 0) { toasts = toasts.slice(0, -1); }
     }
   }
 </script>
@@ -106,6 +111,11 @@
 {:else}
   <nav class="nav">
     <div class="nav-inner">
+      <button class="hamburger" onclick={toggleDrawer} aria-label="Open menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
       <a href="#search" onclick={navigate} class="nav-brand">StreamVault</a>
       <div class="nav-links">
         <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
@@ -118,6 +128,29 @@
       </div>
     </div>
   </nav>
+
+  {#if drawerOpen}
+    <div class="drawer-backdrop" onclick={closeDrawer} role="button" tabindex="-1" aria-label="Close menu"></div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <span class="nav-brand">StreamVault</span>
+        <button class="drawer-close" onclick={closeDrawer} aria-label="Close menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-links">
+        <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
+        <a href="#queue" onclick={navigate} class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
+        <a href="#settings" onclick={navigate} class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
+      </div>
+      <div class="drawer-footer">
+        <span class="connection-dot" class:connected={$sseConnected} class:disconnected={!$sseConnected}></span>
+        <button class="btn btn-sm" onclick={handleLogout}>Logout</button>
+      </div>
+    </div>
+  {/if}
 
   <main class="main-content">
     {#if currentRoute === 'search'}
@@ -264,9 +297,101 @@
     padding: 5rem 1.5rem 2rem;
   }
 
+  /* Hamburger - hidden on desktop */
+  .hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0.5rem;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+  .hamburger:hover { background: #222222; }
+
+  /* Drawer */
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 51;
+  }
+
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    z-index: 52;
+    display: flex;
+    flex-direction: column;
+    animation: drawerSlideIn 0.2s ease;
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .drawer-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+  .drawer-close:hover { background: #222222; }
+
+  .drawer-links {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 0;
+  }
+
+  .drawer-links .nav-link {
+    padding: 0.6rem 1rem;
+    border-radius: 0;
+    font-size: 0.85rem;
+  }
+
+  .drawer-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  @keyframes drawerSlideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
   @media (max-width: 639px) {
-    .main-content {
-      padding: 4.5rem 1rem 1.5rem;
+    .hamburger {
+      display: flex;
+    }
+
+    .nav-links, .nav-right {
+      display: none;
     }
 
     .nav-inner {
@@ -274,13 +399,8 @@
       gap: 0.75rem;
     }
 
-    .nav-links {
-      gap: 0;
-    }
-
-    .nav-link {
-      font-size: 0.75rem;
-      padding: 0.3rem 0.5rem;
+    .main-content {
+      padding: 4.5rem 1rem 1.5rem;
     }
 
     .login-screen {
