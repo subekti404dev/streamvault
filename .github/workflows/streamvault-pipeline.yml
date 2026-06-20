@@ -241,7 +241,7 @@ jobs:
           ffmpeg -y \
             -i "$INPUT_FILE" \
             -c:v libx264 -profile:v main -pix_fmt yuv420p -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 5000k \
-            -c:a aac -b:a 128k \
+            -c:a aac -ac 2 -b:a 128k \
             -vf "scale=-2:$TARGET_HEIGHT" \
             -force_key_frames "expr:eq(mod(n,72),0)" \
             -hls_time 3 \
