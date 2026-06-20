@@ -263,16 +263,14 @@ jobs:
                 PCT=$(echo "scale=1; $SECONDS_ELAPSED * 100 / $TOTAL_DURATION" | bc 2>/dev/null || echo "0")
                 PCT=$(echo "$PCT" | awk '{if($1>99)$1=99; if($1<1)$1=1; print $1}')
                 PCT_INT=${PCT%.*}
+                PCT_INT=${PCT_INT:-0}
 
                 NOW=$(date +%s)
-                if [ $(( NOW - LAST_REPORT )) -ge 10 ]; then
+                if [ $(( NOW - LAST_REPORT )) -ge 10 ] && [ "$PCT_INT" -gt 0 ] 2>/dev/null; then
                   .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
-                    "$(jq -n --arg p 'transcode' --argjson pp "$PCT_INT" '{phase: $p, progress_pct: $pp}')"
+                    "$(jq -n --arg p 'transcode' --argjson pp "${PCT_INT:-0}" '{phase: $p, progress_pct: $pp}')"
                   echo "Transcode: ${PCT}% (${TIMESTAMP})"
                 fi
-              fi
-            fi
-          done
 
           wait "$FFMPEG_PID"
           FFMPEG_EXIT=$?
