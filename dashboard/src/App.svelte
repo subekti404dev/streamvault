@@ -75,9 +75,15 @@
 
 {#if showLogin}
   <div class="login-screen">
-    <div class="login-card glass">
-      <h1>StreamVault</h1>
-      <p class="subtitle">Personal Media Streaming Pipeline</p>
+    <div class="login-card">
+      <div class="login-brand">
+        <svg class="login-icon" width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <rect x="2" y="2" width="36" height="36" rx="4" stroke="#F5C518" stroke-width="2" fill="none"/>
+          <path d="M12 20h16M20 12v16" stroke="#F5C518" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h1>StreamVault</h1>
+      </div>
+      <p class="login-subtitle">Personal Media Streaming Pipeline</p>
       <form onsubmit={(e) => { e.preventDefault(); handleLogin(); }}>
         <div class="form-group">
           <label for="token">Auth Token</label>
@@ -89,16 +95,16 @@
           />
         </div>
         {#if loginError}
-          <p class="error">{loginError}</p>
+          <p class="login-error">{loginError}</p>
         {/if}
-        <button type="submit" class="btn btn-primary" style="width:100%">
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">
           Connect
         </button>
       </form>
     </div>
   </div>
 {:else}
-  <nav class="nav glass">
+  <nav class="nav">
     <div class="nav-inner">
       <a href="#search" onclick={navigate} class="nav-brand">StreamVault</a>
       <div class="nav-links">
@@ -135,29 +141,44 @@
     justify-content: center;
     min-height: 100vh;
     padding: 2rem;
+    background: var(--bg-primary);
   }
 
   .login-card {
     max-width: 400px;
     width: 100%;
-    padding: 2.5rem;
-    text-align: center;
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.8);
   }
 
-  .login-card h1 {
-    font-size: 1.75rem;
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin-bottom: 0.25rem;
   }
 
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 2rem;
+  .login-brand h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--text-primary);
   }
 
-  .error {
+  .login-subtitle {
+    font-family: 'Inter', sans-serif;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .login-error {
     color: var(--danger);
-    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
     margin-bottom: 0.75rem;
   }
 
@@ -167,14 +188,12 @@
     left: 0;
     right: 0;
     z-index: 50;
-    border-radius: 0;
-    border-top: none;
-    border-left: none;
-    border-right: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
   }
 
   .nav-inner {
-    max-width: 1200px;
+    max-width: 1440px;
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -183,9 +202,10 @@
   }
 
   .nav-brand {
+    font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: 1.1rem;
-    color: var(--text-primary);
+    color: var(--accent);
     text-decoration: none;
   }
 
@@ -196,16 +216,25 @@
   }
 
   .nav-link {
+    font-family: 'JetBrains Mono', monospace;
     padding: 0.4rem 0.8rem;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     transition: all 0.15s ease;
   }
 
-  .nav-link:hover { color: var(--text-primary); background: var(--glass-hover); }
-  .nav-link.active { color: var(--accent); background: rgba(99, 102, 241, 0.1); }
+  .nav-link:hover {
+    color: var(--text-primary);
+    background: #222222;
+  }
+
+  .nav-link.active {
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    background: rgba(245, 197, 24, 0.08);
+  }
 
   .nav-right {
     display: flex;
@@ -216,21 +245,41 @@
   .connection-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
     display: inline-block;
   }
 
-  .connection-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
-  .connection-dot.disconnected { background: var(--danger); }
+  .connection-dot.connected {
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
+  }
 
-  .btn-sm {
-    padding: 0.3rem 0.75rem;
-    font-size: 0.8rem;
+  .connection-dot.disconnected {
+    background: var(--danger);
   }
 
   .main-content {
-    max-width: 1200px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 5rem 1.5rem 2rem;
+  }
+
+  @media (max-width: 639px) {
+    .main-content {
+      padding: 4.5rem 1rem 1.5rem;
+    }
+
+    .nav-inner {
+      padding: 0.5rem 1rem;
+      gap: 0.75rem;
+    }
+
+    .nav-links {
+      gap: 0;
+    }
+
+    .nav-link {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.5rem;
+    }
   }
 </style>
