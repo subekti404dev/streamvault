@@ -142,10 +142,12 @@ pub async fn retry_job(
         return Err(AppError::BadRequest("Can only retry failed jobs".into()));
     }
 
-    let skip_download = job.last_checkpoint.as_deref() == Some("download")
-        || job.last_checkpoint.as_deref() == Some("transcode");
-    let skip_transcode = job.last_checkpoint.as_deref() == Some("transcode");
-
+    // Skip only if checkpoint URL is actually available
+    let skip_download = (job.last_checkpoint.as_deref() == Some("download")
+        || job.last_checkpoint.as_deref() == Some("transcode"))
+        && job.gh_artifact_dl_url.is_some();
+    let skip_transcode = job.last_checkpoint.as_deref() == Some("transcode")
+        && job.gh_artifact_tc_url.is_some();
     queries::insert_job_event(
         &state.db, &id, None, "status_change",
         &format!("Retry triggered (last checkpoint: {:?}, skip_dl: {}, skip_tc: {})",
