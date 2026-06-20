@@ -311,12 +311,12 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       <div class="season-episode-card">
         <div class="grid-2">
           <div class="form-group">
-            <label for="season">Season</label>
-            <input id="season" type="number" bind:value={season} min="1" />
+            <label for="selected-season">Season</label>
+            <input id="selected-season" type="number" bind:value={season} min="1" />
           </div>
           <div class="form-group">
-            <label for="episode">Episode</label>
-            <input id="episode" type="number" bind:value={episode} min="1" />
+            <label for="selected-episode">Episode</label>
+            <input id="selected-episode" type="number" bind:value={episode} min="1" />
           </div>
         </div>
         <button class="btn btn-primary" onclick={handleImdbSearch} disabled={loading}>
@@ -470,6 +470,18 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     border-radius: var(--radius);
     padding: 1.5rem;
   }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 639px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
 
   .search-bar {
     display: flex;
