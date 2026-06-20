@@ -76,82 +76,84 @@
   <p class="page-subtitle">Configure integrations and preferences</p>
 
   {#if loading}
-    <div class="glass-card"><p class="text-muted">Loading settings...</p></div>
+    <div class="settings-section"><p class="text-muted">Loading settings...</p></div>
   {:else}
-    {#each sections as section}
-      <div class="glass-card section-card">
-        {#each fields.filter(f => f.section === section) as field}
-          <div class="form-group">
-            <label for={field.key}>{field.label}</label>
-            {#if field.type === 'checkbox'}
-              <label class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id={field.key}
-                  checked={settings[field.key] === 'true' || settings[field.key] === '1'}
-                  onchange={(e) => {
-                    settings[field.key] = (e.target as HTMLInputElement).checked ? 'true' : 'false';
-                  }}
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            {:else}
-              <input
-                id={field.key}
-                type={field.type}
-                value={settings[field.key] ?? ''}
-                placeholder={field.placeholder || ''}
-                oninput={(e) => { settings[field.key] = (e.target as HTMLInputElement).value; }}
-              />
-            {/if}
-          </div>
-        {/each}
-        {#if section === 'Telegram'}
-          <button class="btn btn-sm btn-test" onclick={testTelegram} disabled={testing}>
-            {testing ? 'Sending...' : '📨 Test Notification'}
-          </button>
-        {/if}
-      </div>
-    {/each}
+    <form onsubmit={(e) => { e.preventDefault(); saveSettings(); }}>
+      {#each sections as section}
+        <div class="settings-section">
+          <h2 class="section-title">{section}</h2>
+          {#each fields.filter(f => f.section === section) as field}
+            <div class="form-group">
+              <label for={field.key}>{field.label}</label>
+              {#if field.type === 'checkbox'}
+                <input type="checkbox" id={field.key} checked={settings[field.key] ?? false} onchange={(e) => settings[field.key] = e.currentTarget.checked} />
+              {:else}
+                <input type={field.type} id={field.key} bind:value={settings[field.key] ?? ''} placeholder={field.placeholder ?? ''} />
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/each}
 
-    <div class="glass-card section-card">
-      <h2 class="section-title">Stremio Addon</h2>
-      <p class="text-muted" style="margin-bottom:0.75rem;">
-        Install this addon in Stremio by opening the following URL:
-      </p>
-      <div class="install-url">
-        <code id="addon-url">{addonInstallUrl()}</code>
-        <button class="btn btn-sm" onclick={() => {
-          navigator.clipboard.writeText(addonInstallUrl());
-          addToast('URL copied to clipboard', 'info');
-        }}>Copy</button>
+      <div class="settings-actions">
+        <button type="submit" class="btn btn-primary" disabled={loading || saving}>{saving ? 'Saving...' : 'Save Settings'}</button>
+        <button type="button" class="btn" onclick={testTelegram} disabled={testing}>{testing ? 'Testing...' : 'Test Telegram'}</button>
       </div>
-    </div>
+    </form>
 
-    <div class="save-bar">
-      <button class="btn btn-primary" onclick={saveSettings} disabled={saving}>
-        {saving ? 'Saving...' : 'Save All Settings'}
-      </button>
+    <div class="addon-info">
+      <span class="detail-label">Stremio Addon URL</span>
+      <code>{addonInstallUrl()}</code>
     </div>
   {/if}
 </div>
 <style>
-.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 24px; transition: 0.2s; }
-.toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s; }
-.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
-.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
-.page { max-width: 700px; margin: 0 auto; }
-.page-title { font-size: 1.5rem; margin-bottom: 0.25rem; }
-.page-subtitle { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem; }
-.section-card { padding: 1.5rem; margin-bottom: 1rem; }
-.section-title { font-size: 0.95rem; color: var(--accent); margin-bottom: 1rem; }
-.save-bar { display: flex; justify-content: flex-end; margin-top: 1rem; }
-.install-url { display: flex; align-items: center; gap: 0.5rem; }
-.install-url code { flex: 1; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); font-size: 0.8rem; word-break: break-all; }
-.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
-.btn-test { margin-top: 0.75rem; background: rgba(44, 168, 255, 0.15); color: var(--accent); border: 1px solid rgba(44, 168, 255, 0.3); }
-.btn-test:hover:not(:disabled) { background: rgba(44, 168, 255, 0.25); }
+.page { max-width: 800px; margin: 0 auto; }
+
+.page-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; font-size: 1.25rem; margin-bottom: 0.25rem;
+}
+
+.page-subtitle {
+  color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem;
+}
+
+.settings-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem;
+}
+
+.section-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 600;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+}
+
+.settings-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+
+.addon-info {
+  margin-top: 1.5rem; padding: 1rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+.addon-info code {
+  background: var(--bg-primary); padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  color: var(--text-primary); word-break: break-all;
+}
+
+.detail-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+}
+
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
+
+@media (max-width: 639px) {
+  .settings-actions { flex-direction: column; }
+  .settings-actions button { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>
