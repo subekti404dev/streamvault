@@ -94,7 +94,7 @@
   }
 
   function eventIcon(type: string): string {
-    const icons: Record<string, string> = { status_change: '○', progress: '▶', checkpoint: '💾', error: '✗' };
+    const icons: Record<string, string> = { status_change: '●', progress: '▶', checkpoint: '■', error: '✗' };
     return icons[type] || '•';
   }
 
@@ -107,28 +107,28 @@
   <a href="#queue" onclick={navigate} class="back-link">← Back to Queue</a>
 
   {#if loading}
-    <div class="glass-card"><p class="text-muted">Loading...</p></div>
+    <div class="card"><p class="text-muted">Loading...</p></div>
   {:else if !job}
-    <div class="glass-card"><p class="text-muted">Job not found or removed.</p></div>
+    <div class="card"><p class="text-muted">Job not found or removed.</p></div>
   {:else}
-    <div class="glass-card job-header-card">
+    <div class="card">
       <div class="job-title-row">
         <div>
           <h1>{job.title || job.imdb_id}</h1>
           <div class="job-meta">
-            <span class="badge" style="background: rgba(99,102,241,0.2); color: var(--accent);">
+            <span class="badge">
               {job.media_type}
             </span>
             {#if job.media_type === 'series' && job.season != null && job.episode != null}
-              <span class="badge" style="background: rgba(139,92,246,0.2); color: #a78bfa;">
+              <span class="badge">
                 S{String(job.season).padStart(2,'0')}E{String(job.episode).padStart(2,'0')}
               </span>
             {/if}
             {#if job.video_resolution}
-              <span class="badge" style="background: rgba(16,185,129,0.2); color: var(--success);">{job.video_resolution}</span>
+              <span class="badge">{job.video_resolution}</span>
             {/if}
             {#if job.duration_seconds}
-              <span class="badge" style="background: rgba(245,158,11,0.2); color: #fbbf24;">{formatDuration(job.duration_seconds)}</span>
+              <span class="badge">{formatDuration(job.duration_seconds)}</span>
             {/if}
           </div>
         </div>
@@ -139,8 +139,8 @@
     </div>
 
     {#if job.status === 'completed'}
-      <div class="glass-card stream-card">
-        <h3>🎬 Stream URL</h3>
+      <div class="card stream-card">
+        <h3>Stream URL</h3>
         <div class="stream-url-box">
           <code>{window.location.origin}/proxy/hls/{job.id}/master.m3u8</code>
           <button
@@ -153,22 +153,22 @@
             Copy
           </button>
         </div>
-        <p class="text-muted" style="font-size:0.8rem; margin-top:0.5rem;">
+        <p class="text-muted mt-2" style="font-size:0.8rem;">
           Use this URL in any HLS player, or find this title in Stremio with the StreamVault addon installed.
         </p>
       </div>
     {/if}
 
     {#if job.status === 'failed'}
-      <div class="glass-card error-card">
+      <div class="card error-card">
         <h3>Error Details</h3>
         <p>{job.error_message || 'Unknown error'}</p>
-        <div style="margin-top:0.75rem;">
+        <div class="mt-3">
           {#if job.last_checkpoint}
             <p class="text-muted" style="font-size:0.8rem;">
               Last checkpoint: {job.last_checkpoint}
             </p>
-            <p class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+            <p class="text-muted mt-1" style="font-size:0.8rem;">
               Resume from checkpoint -&gt;
               {#if job.last_checkpoint === 'transcode'}
                 Skip download &amp; transcode, langsung upload
@@ -181,16 +181,16 @@
               No checkpoint available — will process from start.
             </p>
           {/if}
-          <button class="btn btn-success" onclick={retryJob} style="margin-top:0.5rem;">
+          <button class="btn btn-success mt-2" onclick={retryJob}>
             Resume from Checkpoint
           </button>
-          <button class="btn btn-danger" onclick={deleteJob} style="margin-left:0.5rem;">Remove</button>
+          <button class="btn btn-danger ml-2" onclick={deleteJob}>Remove</button>
         </div>
       </div>
     {/if}
 
     {#if isActiveStatus(job.status)}
-      <div class="glass-card">
+      <div class="card">
         <h3>Progress</h3>
         <div class="phase-block">
           <div class="phase-row">
@@ -223,7 +223,7 @@
         </div>
       {/if}
     {/if}
-    <div class="glass-card">
+    <div class="card">
       <h3>Details</h3>
       <div class="detail-grid">
         <div><span class="detail-label">IMDB ID</span><span>{job.imdb_id}</span></div>
@@ -237,31 +237,21 @@
         {/if}
       </div>
     </div>
-    <div class="glass-card">
-      <h3>Logs & Events</h3>
+    <div class="card">
+      <h3 class="card-title">Logs &amp; Events</h3>
       {#if events.length === 0}
         <p class="text-muted">No logs yet.</p>
       {:else}
-        <div class="timeline">
+        <div class="terminal-log">
           {#each events as event}
-            <div class="timeline-item">
-              <div class="timeline-dot" style="background:{eventColor(event.event_type)};"></div>
-              <div class="timeline-content">
-                <div class="timeline-header">
-                  <span class="timeline-event" style="color:{eventColor(event.event_type)};">
-                    {eventIcon(event.event_type)} {eventLabel(event.event_type)}
-                  </span>
-                  <span class="timeline-time">{formatTime(event.created_at)}</span>
-                </div>
-                {#if eventMessage(event)}
-                  <p class="timeline-message">{eventMessage(event)}</p>
-                {/if}
-                {#if event.progress_pct != null}
-                  <div class="progress-bar" style="margin-top:0.3rem; max-width:200px;">
-                    <div class="progress-fill" style="width:{event.progress_pct}%;"></div>
-                  </div>
-                {/if}
-              </div>
+            <div class="log-line">
+              <span class="log-time">{formatTime(event.created_at)}</span>
+              <span class="log-event" style="color:{eventColor(event.event_type)};">
+                [{eventLabel(event.event_type)}]
+              </span>
+              {#if eventMessage(event)}
+                <span>{eventMessage(event)}</span>
+              {/if}
             </div>
           {/each}
         </div>
@@ -269,53 +259,83 @@
     </div>
   {/if}
 <style>
-  .phase-block { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
-  .phase-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
-  .phase-row span:first-child { min-width: 80px; color: var(--text-secondary); }
-  .phase-row .progress-bar { flex: 1; }
-  .phase-row span:last-child { min-width: 40px; text-align: right; color: var(--text-secondary); }
-  .ci-card { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding: 0.75rem; border: 1px solid rgba(99,102,241,0.25); border-radius: var(--radius-md); background: rgba(99,102,241,0.08); }
-  .ci-label { font-size: 0.8rem; font-weight: 600; color: var(--accent); }
-  .ci-link { color: #93c5fd; text-decoration: none; font-weight: 600; }
-  .ci-link:hover { text-decoration: underline; }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
-  .back-link:hover { color: var(--text-primary); }
-  .glass-card { padding: 1.25rem; margin-bottom: 1rem; }
-  .stream-card { border-color: rgba(16,185,129,0.3); }
-  .stream-card h3 { color: var(--success); margin-bottom: 0.75rem; }
-  .stream-url-box { display: flex; align-items: center; gap: 0.5rem; }
-  .stream-url-box code {
-    flex: 1;
-    background: rgba(0,0,0,0.2);
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    color: var(--text-primary);
-    word-break: break-all;
-  }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem;
+}
 
-  .job-title-row { display: flex; justify-content: space-between; align-items: flex-start; }
-  .job-title-row h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }
-  .job-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-  .status-badge { padding: 0.3rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
-  .error-card { border-color: rgba(239,68,68,0.3); }
-  .error-card h3 { color: var(--danger); margin-bottom: 0.5rem; }
-  .phase-block { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
-  .phase-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
-  .phase-row span:first-child { min-width: 80px; color: var(--text-secondary); }
-  .phase-row .progress-bar { flex: 1; }
-  .phase-row span:last-child { min-width: 40px; text-align: right; color: var(--text-secondary); }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
-  .detail-grid > div { display: flex; flex-direction: column; gap: 0.15rem; }
-  .detail-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .timeline { position: relative; margin-top: 0.75rem; padding-left: 1rem; }
-  .timeline-item { display: flex; gap: 0.75rem; padding-bottom: 1rem; position: relative; }
-  .timeline-item:last-child { padding-bottom: 0; }
-  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .timeline-content { flex: 1; }
-  .timeline-header { display: flex; justify-content: space-between; }
-  .timeline-event { font-size: 0.8rem; font-weight: 500; }
-  .timeline-time { font-size: 0.75rem; color: var(--text-muted); }
-  .timeline-message { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem; white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,0.12); border-radius: var(--radius-sm); padding: 0.35rem 0.5rem; }
-  .text-muted { color: var(--text-muted); }
+.card-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.back-link {
+  display: inline-block; font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 1rem;
+}
+.back-link:hover { color: var(--accent); }
+
+.job-title-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.job-title-row h1 { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.3rem; margin-bottom: 0.5rem; }
+.job-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+.status-badge {
+  padding: 0.3rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+}
+
+.stream-card { border-color: var(--success); }
+.stream-card h3 { color: var(--success); margin-bottom: 0.75rem; }
+
+.stream-url-box { display: flex; align-items: center; gap: 0.5rem; }
+.stream-url-box code {
+  flex: 1; background: var(--bg-primary); padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  color: var(--text-primary); word-break: break-all;
+}
+
+.error-card { border-color: var(--danger); }
+.error-card h3 { color: var(--danger); margin-bottom: 0.5rem; }
+
+.phase-block { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+.phase-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+.phase-row span:first-child {
+  min-width: 80px; color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+}
+.phase-row .progress-bar { flex: 1; }
+.phase-row span:last-child {
+  min-width: 40px; text-align: right; color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+}
+
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
+.detail-grid > div { display: flex; flex-direction: column; gap: 0.15rem; }
+.detail-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.ci-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  margin-top: 1rem; padding: 0.75rem 1rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.ci-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
+.ci-link { color: var(--info); text-decoration: none; font-weight: 600; }
+.ci-link:hover { text-decoration: underline; }
+
+.text-muted { color: var(--text-muted); }
+
+/* Terminal log event styling */
+.log-time { color: var(--text-muted); margin-right: 0.5rem; }
+.log-event { font-weight: 600; margin-right: 0.5rem; }
+
+@media (max-width: 639px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .job-title-row { flex-direction: column; gap: 0.5rem; }
+  .stream-url-box { flex-direction: column; align-items: stretch; }
+}
 </style>
