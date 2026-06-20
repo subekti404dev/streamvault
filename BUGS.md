@@ -1,6 +1,29 @@
 # StreamVault — Code Review: Bugs & Issues
 
-> Tanggal: 17 Juni 2026 · Reviewer: Pi Agent
+> Tanggal: 20 Juni 2026 · Reviewer: Pi Agent
+
+---
+
+### Status Update
+
+| Bug | Status | Catatan |
+|-----|--------|---------|
+| #4 docker/Dockerfile | ✅ Fixed | File sudah dihapus |
+| #5 static_files.rs | ✅ Fixed | File sudah dihapus |
+| #15 AAC 5.1 → stereo | ✅ Fixed | `-ac 2` ditambahkan ke ffmpeg di pipeline |
+
+### New Bugs
+
+#### 15. AAC 5.1 → Browser MSE Buffer Append Error (pipeline)
+
+**Bug**: FFmpeg di GHA workflow tidak pake `-ac 2`, jadi audio AAC di-encode dengan channel layout asli (surround 5.1). Browser MSE (`SourceBuffer`) cuma support AAC stereo (max 2 channel).
+
+**Dampak**: Segmen download OK, tapi browser nolak append ke SourceBuffer → `bufferAppendError` fatal. Player non-browser (VLC, ffplay) tetap jalan karena punya decoder native.
+
+**Fix**: Pipeline ffmpeg: `-c:a aac` → `-c:a aac -ac 2 -b:a 128k` (baris 244).
+
+**Encode baru**: ✅ Otomatis stereo.
+**Encode lama**: ❌ Perlu re-trigger pipeline (`skip_download=true`) untuk re-encode ke stereo.
 
 ---
 
@@ -104,6 +127,8 @@ let cached = match queries::get_cached_meta(&state.db, &imdb_id, &type_).await {
 
 **Fix**: Hapus file `docker/Dockerfile` — udah gak dipake.
 
+**Status**: ✅ Fixed (file sudah dihapus).
+
 ---
 
 ## 🟠 Medium Bugs
@@ -120,6 +145,8 @@ let cached = match queries::get_cached_meta(&state.db, &imdb_id, &type_).await {
 **Dampak**: Dead code yang bikin bingung.
 
 **Fix**: Hapus file dan modulenya dari `api/mod.rs`.
+
+**Status**: ✅ Fixed (file sudah dihapus).
 
 ---
 
@@ -264,14 +291,13 @@ Ini nge-leak function ke global scope tanpa prefix atau dokumentasi. Kalau gak k
 
 | Level | Jumlah | Keterangan |
 |-------|--------|------------|
-| 🔴 Critical | 4 | SQL injection, SSE broken, silent error, stale Dockerfile |
-| 🟠 Medium | 5 | Dead code, duplicate config, unused columns, timeout config, script brittle |
-| 🟡 Minor | 4 | Missing derive, path config, global leak, prop mutation |
+| 🔴 Critical | 4 (1 fixed) | SQL injection, SSE broken, silent error, stale Dockerfile ✅ |
+| 🟠 Medium | 5 (1 fixed) | Dead code ✅, duplicate config, unused columns, timeout config, script brittle |
+| 🟡 Minor | 5 | AAC 5.1 ✅, missing derive, path config, global leak, prop mutation |
 
 ### Priority Fixes:
 
 1. **SQL Injection** (#1) — keamanan, harus fix ASAP
 2. **SSE Events** (#2) — frontend real-time rusak total
-3. **Hapus docker/Dockerfile** (#4) — biar gak bikin bingung
-4. **Upload script `set -e`** (#9) — pipeline gampang gagal
-
+3. **Upload script `set -e`** (#9) — pipeline gampang gagal
+4. **Aria2c timeout** (#8) — download bisa hang

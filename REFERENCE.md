@@ -11,15 +11,36 @@ This document summarizes key architectural patterns and solutions from the Magne
 - Has proper worker lifecycle with cancel, timeout, recovery
 - Uses a Torrentio proxy to bypass Cloudflare blocking
 
+## HLS Proxy Architecture
+
+StreamVault serves HLS via a lightweight Axum proxy (`backend/src/stremio/proxy.rs`):
+- **Playlist** regenerated on-the-fly from `hls_chunks` table — no static file serving
+- **Segments** proxied from Discord CDN, not stored locally
+- **URL refresh** — expired Discord CDN URLs are refreshed via Discord API automatically
+- **Range requests** supported (HTTP Range header passthrough)
+- **CORS** set permissive (`*`) for Stremio web client
+
+### Audio Constraint
+
+AAC audio must be **stereo (2-channel)** for browser MSE compatibility. Ffmpeg in pipeline uses `-ac 2` to downmix 5.1 surround sources. See pipeline bug #15.
+
+### Debug Tool
+
+`hls-debug.html` at project root — standalone HLS player with real-time logging. Open directly in any browser.
+
 ## Key Differences from StreamVault
 
 | Aspect | MagnetVault | StreamVault |
 |--------|-------------|-------------|
 | Download method | librqbit (in-process) | GitHub Actions + aria2c (external) |
+| Segment duration | 6s | 3s |
+| Audio | AAC (variable channels) | AAC **stereo** (`-ac 2`) |
+| HLS serving | Local filesystem | Discord CDN proxy (on-the-fly) |
 | Storage | Local filesystem cache | Discord CDN (via HLS upload) |
 | Concurrency | Multiple worker loops | Single GHA workflow per job |
 | Cancel mechanism | DB flag + polling | Cancel GHA workflow |
 | Torrentio access | Vercel proxy | Direct (may be blocked) |
+| Debug tool | None | `hls-debug.html` |
 
 ## Torrentio Integration
 
@@ -225,8 +246,8 @@ tokio::select! {
 **Restart recovery:**
 ```rust
 // On startup, reset stuck downloads
-UPDATE downloads 
-SET status = 'queued' 
+UPDATE downloads
+SET status = 'queued'
 WHERE status = 'downloading';
 ```
 

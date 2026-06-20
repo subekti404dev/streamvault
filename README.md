@@ -55,7 +55,7 @@ cd dashboard && npm run dev
 
 The Vite dev server proxies API requests to the backend on port 8080.
 
-## Stremio Addon
+### Stremio Addon
 
 After deployment, install the addon in Stremio by opening:
 ```
@@ -67,10 +67,17 @@ https://your-server.com/manifest.json
 1. **Search** — Enter IMDB ID → fetch metadata + torrents via Torrentio
 2. **Queue** — Select a torrent → job enters FIFO queue
 3. **Download** — GHA downloads via aria2c, saves checkpoint artifact
-4. **Transcode** — ffmpeg converts to HLS (H.264 + AAC, 6s segments)
+4. **Transcode** — ffmpeg converts to HLS (H.264 + AAC stereo @128k, 3s segments). Audio forced to stereo (`-ac 2`) for browser MSE compatibility.
 5. **Upload** — Each segment uploaded to Discord channel
-6. **Stream** — Stremio fetches HLS via the backend proxy
+6. **Stream** — Stremio fetches HLS via the backend proxy. Playlist regenerated on-the-fly from DB; segments proxied from Discord CDN.
 
+### Audio Note
+
+HLS segments use **AAC stereo** (2-channel, 128kbps). Browser MSE (MediaSource Extensions) doesn't support AAC 5.1 surround — ffmpeg downmixes via `-ac 2`. All players (VLC, ffplay, hls.js, native Safari HLS) work with stereo.
+
+### HLS Debug
+
+`hls-debug.html` at project root is a standalone HLS player for browser testing. Open directly — shows real-time logs (CORS check, fragment loads, buffer errors) alongside the video.
 Checkpoint-based retry allows resuming from download, transcode, or upload phase.
 
 ## Deployment
