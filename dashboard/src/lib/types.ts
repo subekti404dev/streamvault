@@ -67,6 +67,33 @@ export interface JobDetail {
   gh_repo?: string | null;
 }
 
+export interface LibraryJob {
+  id: string;
+  title: string | null;
+  season: number | null;
+  episode: number | null;
+  status: string;
+  video_resolution: string | null;
+  duration_seconds: number | null;
+  created_at: string;
+}
+
+export interface LibraryGroup {
+  imdb_id: string;
+  title: string | null;
+  poster_url: string | null;
+  media_type: string;
+  job_count: number;
+  jobs: LibraryJob[];
+}
+
+export interface LibraryResponse {
+  items: LibraryGroup[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export type AppSettings = Record<string, string>;
 
 export interface StremioCatalogResponse {

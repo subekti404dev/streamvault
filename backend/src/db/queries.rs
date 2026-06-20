@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use crate::error::AppResult;
+use crate::error::{AppResult, AppError};
 
 // ── DB Models ──
 
@@ -108,6 +108,35 @@ pub struct NewHlsChunk {
     pub discord_message_id: Option<String>,
     pub duration_seconds: Option<f64>,
     pub file_size_bytes: Option<i64>,
+}
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct LibraryJob {
+    pub id: String,
+    pub title: Option<String>,
+    pub season: Option<i32>,
+    pub episode: Option<i32>,
+    pub status: String,
+    pub video_resolution: Option<String>,
+    pub duration_seconds: Option<f64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LibraryGroup {
+    pub imdb_id: String,
+    pub title: Option<String>,
+    pub poster_url: Option<String>,
+    pub media_type: String,
+    pub job_count: i64,
+    pub jobs: Vec<LibraryJob>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LibraryResponse {
+    pub items: Vec<LibraryGroup>,
+    pub total: i64,
+    pub page: i64,
+    pub limit: i64,
 }
 
 // ── Jobs ──
@@ -331,5 +360,118 @@ pub async fn get_setting(pool: &SqlitePool, key: &str) -> AppResult<Option<Strin
 pub async fn upsert_setting(pool: &SqlitePool, key: &str, value: &str) -> AppResult<()> {
     sqlx::query("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)")
         .bind(key).bind(value).execute(pool).await?;
+    Ok(())
+}
+
+// ── Library ──
+
+pub async fn get_completed_jobs_grouped(
+    pool: &SqlitePool,
+    media_type: Option<&str>,
+    page: i64,
+    limit: i64,
+) -> AppResult<LibraryResponse> {
+    let offset = (page - 1) * limit;
+
+    let total = if let Some(mt) = media_type {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT imdb_id) FROM jobs WHERE status = 'completed' AND media_type = ?"
+        )
+        .bind(mt)
+        .fetch_one(pool)
+        .await?
+    } else {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT imdb_id) FROM jobs WHERE status = 'completed'"
+        )
+        .fetch_one(pool)
+        .await?
+    };
+
+    let groups = if let Some(mt) = media_type {
+        sqlx::query_as::<_, (String, Option<String>, Option<String>, String, i64)>(
+            r#"
+            SELECT j.imdb_id, j.title, j.poster_url, j.media_type, COUNT(*) as job_count
+            FROM jobs j
+            WHERE j.status = 'completed' AND j.media_type = ?
+            GROUP BY j.imdb_id
+            ORDER BY j.title
+            LIMIT ? OFFSET ?
+            "#
+        )
+        .bind(mt)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as::<_, (String, Option<String>, Option<String>, String, i64)>(
+            r#"
+            SELECT j.imdb_id, j.title, j.poster_url, j.media_type, COUNT(*) as job_count
+            FROM jobs j
+            WHERE j.status = 'completed'
+            GROUP BY j.imdb_id
+            ORDER BY j.title
+            LIMIT ? OFFSET ?
+            "#
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    };
+
+    let mut items = Vec::new();
+    for (imdb_id, title, poster_url, media_type, job_count) in groups {
+        let jobs = sqlx::query_as::<_, LibraryJob>(
+            r#"
+            SELECT id, title, season, episode, status, video_resolution, duration_seconds, created_at
+            FROM jobs
+            WHERE imdb_id = ? AND status = 'completed'
+            ORDER BY season, episode
+            "#
+        )
+        .bind(&imdb_id)
+        .fetch_all(pool)
+        .await?;
+
+        let final_poster = if poster_url.is_some() {
+            poster_url
+        } else {
+            sqlx::query_scalar::<_, Option<String>>(
+                "SELECT poster_url FROM cinemeta_cache WHERE imdb_id = ? AND media_type = ?"
+            )
+            .bind(&imdb_id)
+            .bind(&media_type)
+            .fetch_optional(pool)
+            .await?
+            .flatten()
+        };
+
+        items.push(LibraryGroup {
+            imdb_id,
+            title,
+            poster_url: final_poster,
+            media_type,
+            job_count,
+            jobs,
+        });
+    }
+
+    Ok(LibraryResponse { items, total, page, limit })
+}
+
+pub async fn requeue_job(pool: &SqlitePool, job_id: &str) -> AppResult<()> {
+    let result = sqlx::query(
+        "UPDATE jobs SET status = 'queued', updated_at = datetime('now') WHERE id = ? AND status IN ('completed', 'failed')"
+    )
+    .bind(job_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Job {} not found or not eligible for requeue", job_id)));
+    }
+
     Ok(())
 }

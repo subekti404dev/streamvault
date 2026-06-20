@@ -1,27 +1,41 @@
-use axum::{Json, extract::{State, Path}};
-use serde_json::{json, Value};
+use axum::{Json, extract::{State, Path, Query}};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::{app::AppState, db::queries, error::{AppResult, AppError}};
+use crate::{app::AppState, db::queries, error::AppResult};
+
+#[derive(Debug, Deserialize)]
+pub struct LibraryQuery {
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+    pub r#type: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RequeueResponse {
+    pub job_id: String,
+    pub status: String,
+}
 
 pub async fn list_library(
     State(state): State<Arc<AppState>>,
-) -> AppResult<Json<Value>> {
-    let completed = queries::list_jobs_by_status(&state.db, "completed").await?;
-    Ok(Json(json!(completed)))
+    Query(params): Query<LibraryQuery>,
+) -> AppResult<Json<queries::LibraryResponse>> {
+    let page = params.page.unwrap_or(1).max(1);
+    let limit = params.limit.unwrap_or(20).min(100);
+    let media_type = params.r#type.as_deref();
+
+    let response = queries::get_completed_jobs_grouped(&state.db, media_type, page, limit).await?;
+    Ok(Json(response))
 }
 
-pub async fn delete_library(
+pub async fn requeue_job(
     State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> AppResult<Json<Value>> {
-    let job = queries::get_job(&state.db, &id).await
-        .map_err(|_| AppError::NotFound(format!("Job {} not found", id)))?;
+    Path(job_id): Path<String>,
+) -> AppResult<Json<RequeueResponse>> {
+    queries::requeue_job(&state.db, &job_id).await?;
 
-    if job.status != "completed" {
-        return Err(AppError::BadRequest("Can only delete completed jobs from library".into()));
-    }
-
-    queries::delete_job(&state.db, &id).await?;
-
-    Ok(Json(json!({ "removed": true })))
+    Ok(Json(RequeueResponse {
+        job_id,
+        status: "queued".to_string(),
+    }))
 }

@@ -1,4 +1,4 @@
-import type { SearchResult, QueueList, JobDetail, AppSettings, StremioCatalogResponse, StremioMetaResponse } from './types';
+import type { SearchResult, QueueList, JobDetail, AppSettings, StremioCatalogResponse, StremioMetaResponse, LibraryResponse } from './types';
 
 const BASE = '/api/v1';
 
@@ -126,5 +126,25 @@ export const api = {
       body: JSON.stringify({ infohash }),
     });
     return handleResponse(r);
+  },
+
+  getLibrary: async (type?: string, page?: number, limit?: number): Promise<LibraryResponse> => {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    const qs = params.toString();
+    return handleResponse<LibraryResponse>(
+      await fetch(`${BASE}/library${qs ? '?' + qs : ''}`, { headers: headers() })
+    );
+  },
+
+  requeueJob: async (jobId: string): Promise<{ job_id: string; status: string }> => {
+    return handleResponse(
+      await fetch(`${BASE}/library/${jobId}/requeue`, {
+        method: 'POST',
+        headers: headers()
+      })
+    );
   },
 };

@@ -33,7 +33,7 @@ pub fn create_router(state: Arc<AppState>, dashboard_dir: PathBuf) -> Router {
         .route("/api/v1/settings", put(crate::api::settings::update_settings))
         .route("/api/v1/settings/test-notification", post(crate::api::settings::test_notification))
         .route("/api/v1/library", get(crate::api::library::list_library))
-        .route("/api/v1/library/:id", delete(crate::api::library::delete_library))
+        .route("/api/v1/library/:id/requeue", post(crate::api::library::requeue_job))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             crate::api::auth::auth_middleware,

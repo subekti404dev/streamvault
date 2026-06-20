@@ -5,6 +5,7 @@
   import QueuePage from './pages/QueuePage.svelte';
   import JobDetailPage from './pages/JobDetailPage.svelte';
   import SettingsPage from './pages/SettingsPage.svelte';
+  import LibraryPage from './pages/LibraryPage.svelte';
   import Toast from './lib/Toast.svelte';
 
   let currentRoute = $state('search');
@@ -120,6 +121,7 @@
       <div class="nav-links">
         <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
         <a href="#queue" onclick={navigate} class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
+        <a href="#library" onclick={navigate} class="nav-link" class:active={currentRoute === 'library'}>Library</a>
         <a href="#settings" onclick={navigate} class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
       </div>
       <div class="nav-right">
@@ -143,6 +145,7 @@
       <div class="drawer-links">
         <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
         <a href="#queue" onclick={navigate} class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
+        <a href="#library" onclick={navigate} class="nav-link" class:active={currentRoute === 'library'}>Library</a>
         <a href="#settings" onclick={navigate} class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
       </div>
       <div class="drawer-footer">
@@ -161,6 +164,8 @@
       <JobDetailPage id={routeParams.id || ''} {addToast} {navigate} />
     {:else if currentRoute === 'settings'}
       <SettingsPage {addToast} />
+    {:else if currentRoute === 'library'}
+      <LibraryPage {addToast} {navigate} />
     {/if}
   </main>
 {/if}
