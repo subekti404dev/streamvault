@@ -128,14 +128,12 @@ pub async fn chunk_handler(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| parse_range(v));
 
-    // Try stored URL first, then refresh if expired
     match try_fetch_chunk(&stored_url, range_header.as_ref()).await {
         Ok(resp) => resp,
         Err(_) => {
-            // Try refreshing the CDN URL
-            if let Some(refresh_url) = refresh_cdn_url(&state, &msg_id).await {
+            // Try refreshing the CDN URL with job-specific channel
+            if let Some(refresh_url) = refresh_cdn_url(&state, &job_id, &msg_id).await {
                 if let Ok(resp) = try_fetch_chunk(&refresh_url, range_header.as_ref()).await {
-                    // Update stored URL for future requests
                     let _ = sqlx::query(
                         "UPDATE hls_chunks SET discord_url = ?1 WHERE job_id = ?2 AND filename = ?3",
                     )
@@ -147,7 +145,6 @@ pub async fn chunk_handler(
                     return resp;
                 }
             }
-
             (
                 StatusCode::BAD_GATEWAY,
                 "failed to fetch segment from Discord",
@@ -231,36 +228,49 @@ async fn try_fetch_chunk(
 }
 
 /// Refresh a Discord CDN URL by fetching the message again.
-async fn refresh_cdn_url(state: &Arc<AppState>, msg_id: &Option<String>) -> Option<String> {
+/// Reads channel ID from the job record (supports multi-channel sharding).
+async fn refresh_cdn_url(state: &Arc<AppState>, job_id: &str, msg_id: &Option<String>) -> Option<String> {
     let mid = msg_id.as_ref()?;
-
-    let channel_id = sqlx::query_scalar::<_, String>(
-        "SELECT value FROM app_settings WHERE key = 'discord_channel_id'",
-    )
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten()
-    .unwrap_or_default();
 
     let bot_token = sqlx::query_scalar::<_, String>(
         "SELECT value FROM app_settings WHERE key = 'discord_bot_token'",
     )
     .fetch_optional(&state.db)
     .await
+    .ok()?
+    .unwrap_or_default();
+
+    if bot_token.is_empty() {
+        tracing::warn!("refresh_cdn_url: bot token not configured");
+        return None;
+    }
+
+    // Get the job's assigned channel, fallback to global setting
+    let channel_id = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT discord_channel_id FROM jobs WHERE id = ?1",
+    )
+    .bind(job_id)
+    .fetch_optional(&state.db)
+    .await
     .ok()
+    .flatten()
     .flatten()
     .unwrap_or_default();
 
-    if channel_id.is_empty() || bot_token.is_empty() {
-        let channel_id = std::env::var("DISCORD_CHANNEL_ID").unwrap_or_default();
-        let bot_token = std::env::var("DISCORD_BOT_TOKEN").unwrap_or_default();
-        if channel_id.is_empty() || bot_token.is_empty() {
-            tracing::warn!("refresh_cdn_url: Discord credentials not configured");
-            return None;
-        }
-        return refresh_cdn_url_with_creds(&bot_token, &channel_id, mid).await;
-    }
+    let channel_id = if channel_id.is_empty() {
+        // Fallback to legacy single-channel setting
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT value FROM app_settings WHERE key = 'discord_channel_id'",
+        )
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten()
+        .flatten()
+        .unwrap_or_default()
+    } else {
+        channel_id
+    };
 
     refresh_cdn_url_with_creds(&bot_token, &channel_id, mid).await
 }
