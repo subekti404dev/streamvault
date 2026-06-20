@@ -180,11 +180,8 @@ async fn try_fetch_chunk(
     })?;
 
     let status = resp.status();
-    let content_type = resp.headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("video/mp2t")
-        .to_string();
+    // Override content-type: Discord CDN returns wrong type for .ts files
+    let content_type = "video/mp2t".to_string();
 
     // Check if Discord supports range requests (206 = partial content)
     if status == StatusCode::PARTIAL_CONTENT || status == StatusCode::OK {
