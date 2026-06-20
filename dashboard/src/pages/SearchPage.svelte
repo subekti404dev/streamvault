@@ -202,20 +202,13 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   <h1 class="page-title">Search</h1>
   <p class="page-subtitle">Search for movies and series by title or IMDB ID</p>
 
-  <div class="glass-card search-form">
-    <div class="form-group">
-      <label for="query">Search by Title</label>
-      <input
-        id="query"
-        type="text"
-        bind:value={query}
-        placeholder="e.g. Big Buck Bunny"
-        onkeydown={(e) => e.key === 'Enter' && handleQuerySearch()}
-      />
+  <div class="search-form">
+    <div class="search-bar">
+      <input type="text" bind:value={query} placeholder="Cari IMDB ID atau judul..." onkeydown={(e) => e.key === 'Enter' && handleQuerySearch()} />
+      <button class="btn btn-primary" onclick={handleQuerySearch} disabled={loading || !query.trim()}>
+        {loading ? 'Searching...' : 'Cari'}
+      </button>
     </div>
-    <button class="btn btn-primary" onclick={handleQuerySearch} disabled={loading || !query.trim()}>
-      {loading ? 'Searching...' : 'Search'}
-    </button>
     
     <div class="advanced-toggle">
       <button class="btn-link" onclick={() => showImdbSearch = !showImdbSearch}>
@@ -267,18 +260,18 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
 
   {#if error}
-    <div class="glass-card" style="margin-top:1rem; border-color: rgba(239,68,68,0.3);">
-      <p style="color:var(--danger)">{error}</p>
+    <div class="error-card">
+      <p>{error}</p>
     </div>
   {/if}
 
   {#if catalogResults.length > 0 && !selectedItem}
-    <h3 style="margin-top:1.5rem; margin-bottom:0.75rem; color:var(--text-secondary)">
+    <h3 class="mt-6 mb-3 text-secondary">
       {catalogResults.length} result(s)
     </h3>
     <div class="results-grid">
       {#each catalogResults as item}
-        <button class="glass-card result-card" onclick={() => selectItem(item)}>
+        <button class="result-card" onclick={() => selectItem(item)}>
           {#if item.poster}
             <img src={item.poster} alt={item.name} class="result-poster" />
           {:else}
@@ -288,13 +281,9 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
             <span class="result-title">{item.name}</span>
             <div class="result-meta">
               {#if item.year}
-                <span class="badge" style="background:rgba(99,102,241,0.2);color:var(--accent)">
-                  {item.year}
-                </span>
+                <span class="badge">{item.year}</span>
               {/if}
-              <span class="badge" style="background:rgba(139,92,246,0.2);color:#a78bfa">
-                {item.type}
-              </span>
+              <span class="badge">{item.type}</span>
             </div>
           </div>
         </button>
@@ -303,7 +292,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   {/if}
 
   {#if selectedItem && !result}
-    <div class="glass-card meta-card">
+    <div class="meta-card">
       <div class="meta-content">
         {#if selectedItem.poster}
           <img src={selectedItem.poster} alt={selectedItem.name} class="poster" />
@@ -311,19 +300,15 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         <div>
           <h2>{selectedItem.name}</h2>
           {#if selectedItem.year}
-            <span class="badge" style="background:rgba(99,102,241,0.2);color:var(--accent)">
-              {selectedItem.year}
-            </span>
+            <span class="badge">{selectedItem.year}</span>
           {/if}
-          <span class="badge" style="background:rgba(139,92,246,0.2);color:#a78bfa;margin-left:0.5rem">
-            {selectedItem.type}
-          </span>
+          <span class="badge ml-2">{selectedItem.type}</span>
         </div>
       </div>
     </div>
 
     {#if selectedItem.type === 'series'}
-      <div class="glass-card" style="margin-top:1rem; padding:1.5rem;">
+      <div class="season-episode-card">
         <div class="grid-2">
           <div class="form-group">
             <label for="season">Season</label>
@@ -342,7 +327,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   {/if}
 
   {#if result}
-    <div class="glass-card meta-card">
+    <div class="meta-card">
       <div class="meta-content">
         {#if result.meta.poster}
           <img src={result.meta.poster} alt={result.meta.title} class="poster" />
@@ -350,16 +335,14 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         <div>
           <h2>{result.meta.title}</h2>
           {#if result.meta.year}
-            <span class="badge" style="background:rgba(99,102,241,0.2);color:var(--accent)">
-              {result.meta.year}
-            </span>
+            <span class="badge">{result.meta.year}</span>
           {/if}
         </div>
       </div>
     </div>
 
     <!-- Source tabs -->
-    <div class="source-tabs" style="margin-top:1.5rem;">
+    <div class="source-tabs">
       <button
         class="tab-btn {sourceTab === 'torrentio' ? 'active' : ''}"
         onclick={() => sourceTab = 'torrentio'}
@@ -376,16 +359,16 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
     {#if sourceTab === 'torrentio'}
       {#if result.torrents.length === 0}
-        <div class="glass-card" style="margin-top:1rem">
+        <div class="no-torrents-card">
           <p class="text-muted">No torrents found for this title.</p>
         </div>
       {:else}
-        <h3 style="margin-top:1rem; margin-bottom:0.75rem; color:var(--text-secondary)">
+        <h3 class="mt-4 mb-3 text-secondary">
           {result.torrents.length} torrent source(s)
         </h3>
         <div class="torrent-list">
           {#each result.torrents as torrent}
-            <div class="glass-card torrent-item">
+            <div class="torrent-item">
               <div class="torrent-info">
                 <span class="torrent-name">{torrent.name}</span>
                 <span class="torrent-title">{torrent.title}</span>
@@ -400,7 +383,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       {/if}
     {:else}
       <!-- Custom Magnet tab -->
-      <div class="glass-card" style="margin-top:1rem; padding:1.5rem;">
+      <div class="custom-magnet-section">
         <div class="form-group">
           <label for="custom-magnet">Magnet URI</label>
           <textarea
@@ -409,18 +392,17 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
             placeholder="magnet:?xt=urn:btih:..."
             rows="3"
             oninput={handleMagnetInput}
-            style="font-family:monospace; resize:vertical;"
           ></textarea>
         </div>
         {#if parseMagnet(customMagnet).infohash}
-          <p class="text-muted" style="margin-bottom:0.75rem; font-size:0.8rem;">
+          <p class="infohash-text">
             Infohash: <code>{parseMagnet(customMagnet).infohash}</code>
           </p>
           <div class="form-group">
             <label for="custom-title-2">Title (optional)</label>
             <input id="custom-title-2" type="text" bind:value={customTitle} placeholder={result.meta.title} />
           </div>
-          <div style="display:flex; gap:0.75rem; margin-bottom:1rem;">
+          <div class="flex gap-3 mb-4">
             <button class="btn btn-secondary" onclick={inspectMagnet} disabled={inspecting}>
               {inspecting ? 'Inspecting...' : 'Inspect Files'}
             </button>
@@ -435,12 +417,12 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
             {/if}
           </div>
         {:else}
-          <p class="text-muted" style="font-size:0.8rem;">Paste a valid magnet URI to inspect files</p>
+          <p class="magnet-hint">Paste a valid magnet URI to inspect files</p>
         {/if}
 
         {#if inspectedFiles.length > 0}
-          <h4 style="margin: 1rem 0 0.75rem; color:var(--text-secondary); font-size:0.85rem; font-weight:500;">
-            {inspectedFiles.length} file(s) in <span style="color:var(--text-primary)">{torrentName}</span>
+          <h4 class="files-heading">
+            {inspectedFiles.length} file(s) in <span class="files-torrent-name">{torrentName}</span>
           </h4>
           <div class="file-list">
             {#each inspectedFiles as file}
@@ -465,12 +447,14 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
 <style>
   .page {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
   }
 
   .page-title {
-    font-size: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.25rem;
     margin-bottom: 0.25rem;
   }
 
@@ -481,7 +465,20 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   }
 
   .search-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 1.5rem;
+  }
+
+  .search-bar {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .search-bar input {
+    flex: 1;
+    border-color: #333333;
   }
 
   .advanced-toggle {
@@ -494,7 +491,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     border: none;
     color: var(--accent);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
     padding: 0.5rem;
     transition: color 0.15s ease;
   }
@@ -506,12 +504,15 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   .imdb-search {
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--glass-border);
+    border-top: 1px solid var(--border);
   }
 
   .meta-card {
     margin-top: 1rem;
     padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .meta-content {
@@ -525,10 +526,13 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     height: 120px;
     object-fit: cover;
     border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
   }
 
   .meta-content h2 {
-    font-size: 1.25rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 1.1rem;
   }
 
   .results-grid {
@@ -539,14 +543,20 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   }
 
   .result-card {
-    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     overflow: hidden;
+    text-align: left;
+    color: var(--text-primary);
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
   }
 
   .result-card:hover {
-    transform: translateY(-4px);
     border-color: var(--accent);
   }
 
@@ -560,10 +570,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   .result-poster-placeholder {
     width: 100%;
     aspect-ratio: 2/3;
-    background: rgba(255, 255, 255, 0.05);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: var(--bg-secondary);
   }
 
   .result-info {
@@ -572,8 +579,9 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
   .result-title {
     display: block;
+    font-family: 'JetBrains Mono', monospace;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     margin-bottom: 0.5rem;
     line-height: 1.3;
   }
@@ -595,6 +603,13 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     align-items: center;
     justify-content: space-between;
     padding: 0.875rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .torrent-item:hover {
+    border-color: var(--accent);
   }
 
   .torrent-info {
@@ -618,25 +633,11 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     font-size: 0.75rem;
   }
 
-  .btn-sm {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-
-  .text-muted { color: var(--text-muted); }
-
-  @media (max-width: 768px) {
-    .results-grid {
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    }
-  }
-
   .source-tabs {
     display: flex;
     gap: 0;
     border-bottom: 2px solid var(--border);
-    margin-bottom: 0;
+    margin-top: 1.5rem;
   }
 
   .tab-btn {
@@ -646,19 +647,28 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     border-bottom: 2px solid transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
     transition: all 0.15s ease;
     margin-bottom: -2px;
   }
 
   .tab-btn:hover {
-    color: var(--text);
+    color: var(--text-primary);
   }
 
   .tab-btn.active {
     color: var(--accent);
     border-bottom-color: var(--accent);
+  }
+
+  .custom-magnet-section {
+    margin-top: 1rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .file-list {
@@ -674,8 +684,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--glass-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.15s ease;
@@ -687,13 +697,11 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   }
 
   .file-option:hover {
-    background: var(--glass-hover);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent);
   }
 
   .file-option.selected {
     border-color: var(--accent);
-    background: rgba(99, 102, 241, 0.1);
   }
 
   .file-radio {
@@ -701,7 +709,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     height: 18px;
     min-width: 18px;
     border-radius: 50%;
-    border: 2px solid var(--glass-border);
+    border: 2px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -741,17 +749,17 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
   .btn-secondary {
     padding: 0.5rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
-    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+    color: var(--text-primary);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
     transition: all 0.15s ease;
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
     border-color: var(--accent);
   }
 
@@ -759,4 +767,88 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  .error-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+  }
+
+  .error-card p {
+    color: var(--danger);
+    font-size: 0.85rem;
+  }
+
+  .season-episode-card {
+    margin-top: 1rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .no-torrents-card {
+    margin-top: 1rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .infohash-text {
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .magnet-hint {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .files-heading {
+    margin: 1rem 0 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .files-torrent-name {
+    color: var(--text-primary);
+  }
+
+  textarea {
+    font-family: monospace;
+    resize: vertical;
+  }
+
+  @media (max-width: 639px) {
+    .search-bar {
+      flex-direction: column;
+    }
+
+    .search-bar button {
+      width: 100%;
+      justify-content: center;
+      min-height: 44px;
+    }
+
+    .results-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+  }
+  /* ponytail: utility classes replacing Tailwind conventions */
+  :global(.flex) { display: flex; }
+  :global(.gap-2) { gap: 0.5rem; }
+  :global(.gap-3) { gap: 0.75rem; }
+  :global(.ml-2) { margin-left: 0.5rem; }
+  :global(.mt-3) { margin-top: 0.75rem; }
+  :global(.mt-4) { margin-top: 1rem; }
+  :global(.mb-3) { margin-bottom: 0.75rem; }
+  :global(.mb-4) { margin-bottom: 1rem; }
+  :global(.mt-6) { margin-top: 1.5rem; }
+  :global(.text-center) { text-align: center; }
+  :global(.p-8) { padding: 2rem; }
 </style>
