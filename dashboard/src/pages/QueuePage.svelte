@@ -2,7 +2,7 @@
   import { api } from '../lib/api';
   import { onSseEvent } from '../lib/events';
   import type { Job } from '../lib/types';
-  import { statusLabel, formatBytes, formatDuration } from '../lib/types';
+  import { statusLabel, formatBytes } from '../lib/types';
 
   let { addToast, navigate }: {
     addToast: (msg: string, type?: string) => void;
@@ -11,7 +11,6 @@
 
   let processing = $state<Job[]>([]);
   let queued = $state<Job[]>([]);
-  let completed = $state<Job[]>([]);
   let failed = $state<Job[]>([]);
   let loading = $state(true);
 
@@ -20,7 +19,6 @@
       const data = await api.getQueue();
       processing = data.processing;
       queued = data.queued;
-      completed = data.completed;
       failed = data.failed;
     } catch (e: any) {
       addToast(`Failed to load queue: ${e.message}`, 'error');
@@ -153,38 +151,6 @@
       {/each}
     {/if}
 
-    {#if completed.length > 0}
-      <h2 class="section-title">Completed ({completed.length})</h2>
-      {#each completed as job}
-        <div class="job-card" style="border-left-color: #4488FF;">
-          <div class="job-header">
-            <div>
-              <span class="badge">✓</span>
-              <strong>{job.title || job.imdb_id}</strong>
-              {#if job.media_type === 'series' && job.season != null && job.episode != null}
-                <span class="badge episode-badge">S{String(job.season).padStart(2,'0')}E{String(job.episode).padStart(2,'0')}</span>
-              {/if}
-              {#if job.video_resolution}
-                <span class="text-muted">{job.video_resolution}</span>
-              {/if}
-              {#if job.duration_seconds}
-                <span class="text-muted">{formatDuration(job.duration_seconds)}</span>
-              {/if}
-            </div>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
-            <a
-              href="/proxy/hls/{job.id}/master.m3u8"
-              target="_blank"
-              class="btn btn-sm btn-primary"
-              title="Open HLS stream"
-            >▶ Play</a>
-            <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Delete</button>
-          </div>
-        </div>
-      {/each}
-    {/if}
 
     {#if failed.length > 0}
       <h2 class="section-title">Failed ({failed.length})</h2>
@@ -207,7 +173,7 @@
       {/each}
     {/if}
 
-    {#if processing.length === 0 && queued.length === 0 && completed.length === 0 && failed.length === 0}
+    {#if processing.length === 0 && queued.length === 0 && failed.length === 0}
       <div class="card">
         <p class="text-muted">No jobs yet. Search for a title and add it to the queue!</p>
       </div>
