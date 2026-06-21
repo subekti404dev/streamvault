@@ -33,16 +33,19 @@ pub async fn catalog_handler(
         .unwrap_or_default();
 
     let metas: Vec<MetaPreview> = match type_.as_str() {
-        "movie" => completed.iter()
-            .filter(|j| j.media_type == "movie")
-            .map(|j| MetaPreview {
-                id: j.imdb_id.clone(),
-                type_: "movie".into(),
-                name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
-                poster: None,
-                year: None,
-            })
-            .collect(),
+        "movie" => {
+            let mut seen = std::collections::HashSet::new();
+            completed.iter()
+                .filter(|j| j.media_type == "movie" && seen.insert(&j.imdb_id))
+                .map(|j| MetaPreview {
+                    id: j.imdb_id.clone(),
+                    type_: "movie".into(),
+                    name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
+                    poster: j.poster_url.clone(),
+                    year: None,
+                })
+                .collect()
+        }
         "series" => {
             let mut seen = std::collections::HashSet::new();
             completed.iter()
@@ -51,7 +54,7 @@ pub async fn catalog_handler(
                     id: j.imdb_id.clone(),
                     type_: "series".into(),
                     name: j.title.clone().unwrap_or_else(|| "Unknown".to_string()),
-                    poster: None,
+                    poster: j.poster_url.clone(),
                     year: None,
                 })
                 .collect()
