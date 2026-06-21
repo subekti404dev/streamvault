@@ -5,7 +5,7 @@
   import { formatBytes } from '../lib/types';
 
 const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999';
-  let { addToast }: { addToast: (msg: string, type?: string) => void } = $props();
+  let { addToast, routeParams }: { addToast: (msg: string, type?: string) => void; routeParams?: Record<string, string> } = $props();
 
   let query = $state('');
   let imdbId = $state('');
@@ -63,20 +63,33 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       metadataBaseUrl = DEFAULT_METADATA_URL;
     }
 
-    // Check for prefill from library detail
-    const prefillRaw = localStorage.getItem('sv_search_prefill');
-    if (prefillRaw) {
-      try {
-        const prefill = JSON.parse(prefillRaw);
-        localStorage.removeItem('sv_search_prefill');
-        imdbId = prefill.imdb_id || '';
-        season = prefill.season || 1;
-        episode = prefill.episode || 1;
-        showImdbSearch = true;
-        if (imdbId) {
-          await handleImdbSearch();
-        }
-      } catch {}
+    // Check for prefill from route params
+    const imdbParam = routeParams?.imdb_id;
+    const typeParam = routeParams?.type;
+    const seasonParam = routeParams?.season ? Number(routeParams.season) : undefined;
+    const episodeParam = routeParams?.episode ? Number(routeParams.episode) : undefined;
+
+    if (imdbParam) {
+      imdbId = imdbParam;
+      if (typeParam) mediaType = typeParam as 'movie' | 'series';
+      if (seasonParam) season = seasonParam;
+      if (episodeParam) episode = episodeParam;
+      showImdbSearch = true;
+      await handleImdbSearch();
+    }
+  });
+  // React to routeParams changes (e.g., from Library detail navigation)
+  let prevPrefillKey = $state('');
+  $effect(() => {
+    const key = JSON.stringify(routeParams);
+    if (key !== prevPrefillKey && routeParams?.imdb_id) {
+      prevPrefillKey = key;
+      imdbId = routeParams.imdb_id;
+      if (routeParams.type) mediaType = routeParams.type as 'movie' | 'series';
+      if (routeParams.season) season = Number(routeParams.season);
+      if (routeParams.episode) episode = Number(routeParams.episode);
+      showImdbSearch = true;
+      handleImdbSearch();
     }
   });
 

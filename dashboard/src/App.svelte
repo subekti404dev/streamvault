@@ -30,13 +30,8 @@
     const target = e.currentTarget as HTMLAnchorElement;
     e.preventDefault();
     const href = target.getAttribute('href') ?? '';
-    const [route, ...rest] = href.slice(1).split('/');
-    currentRoute = route || 'search';
-    routeParams = {};
-    if (rest.length > 0) {
-      routeParams = { id: rest[0] };
-    }
-    history.replaceState(null, '', window.location.pathname + href);
+    // Setting hash triggers hashchange event → parseHash()
+    window.location.hash = href;
     closeDrawer();
   }
   let drawerOpen = $state(false);
@@ -63,11 +58,39 @@
     currentRoute = 'search';
   }
 
+  function parseHash() {
+    const hash = window.location.hash.slice(1); // remove #
+    if (!hash) return;
+    const [hashPart, queryPart] = hash.split('?');
+    const [route, ...rest] = hashPart.split('/');
+    currentRoute = route || 'search';
+    routeParams = {};
+    if (rest.length > 0) {
+      routeParams = { id: rest[0] };
+    }
+    if (queryPart) {
+      const params = new URLSearchParams(queryPart);
+      params.forEach((value, key) => {
+        routeParams[key] = value;
+      });
+    }
+  }
+
+  // Parse hash on initial load
+  parseHash();
+
   $effect(() => {
     if (token) {
       connectSSE();
     }
     return () => disconnectSSE();
+  });
+
+  // Listen for hash changes (e.g., from direct URL changes)
+  $effect(() => {
+    const handler = () => parseHash();
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
   });
 
   function onKeyDown(e: KeyboardEvent) {
@@ -158,7 +181,7 @@
 
   <main class="main-content">
     {#if currentRoute === 'search'}
-      <SearchPage {addToast} />
+      <SearchPage {addToast} {routeParams} />
     {:else if currentRoute === 'queue'}
       <QueuePage {addToast} {navigate} />
     {:else if currentRoute === 'job'}

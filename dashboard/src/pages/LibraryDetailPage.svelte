@@ -91,13 +91,7 @@
   }
 
   function navigateToSearch(season: number, episode: number) {
-    localStorage.setItem('sv_search_prefill', JSON.stringify({
-      imdb_id: detail?.imdb_id,
-      season,
-      episode,
-    }));
-    window.location.hash = '#search';
-    window.location.reload();
+    window.location.hash = `#search?imdb_id=${detail?.imdb_id}&type=series&season=${season}&episode=${episode}`;
   }
 
   async function requeueJob(jobId: string) {
