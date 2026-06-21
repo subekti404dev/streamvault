@@ -4,9 +4,8 @@
   import type { Job } from '../lib/types';
   import { statusLabel, formatBytes } from '../lib/types';
 
-  let { addToast, navigate }: {
+  let { addToast }: {
     addToast: (msg: string, type?: string) => void;
-    navigate: (e: Event) => void;
   } = $props();
 
   let processing = $state<Job[]>([]);
@@ -122,7 +121,7 @@
           <div class="job-footer">
             <span class="text-muted">Added {job.created_at ? new Date(job.created_at).toLocaleString() : ''}</span>
             <div style="display:flex; gap:0.5rem;">
-              <a href="#job/{job.id}" onclick={navigate} class="btn btn-sm">Details</a>
+              <a href="#job/{job.id}" class="btn btn-sm">Details</a>
               <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Cancel</button>
             </div>
           </div>

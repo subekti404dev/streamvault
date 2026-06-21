@@ -4,10 +4,9 @@
   import type { Job, JobEvent } from '../lib/types';
   import { statusLabel, statusColor, formatDuration } from '../lib/types';
 
-  let { id, addToast, navigate }: {
+  let { id, addToast }: {
     id: string;
     addToast: (msg: string, type?: string) => void;
-    navigate: (e: Event) => void;
   } = $props();
 
   let job = $state<Job | null>(null);
@@ -105,7 +104,7 @@
 </script>
 
 <div class="page">
-  <a href="#queue" onclick={navigate} class="back-link">← Back to Queue</a>
+  <a href="#queue" class="back-link">← Back to Queue</a>
 
   {#if loading}
     <div class="card"><p class="text-muted">Loading...</p></div>

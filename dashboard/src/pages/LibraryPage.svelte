@@ -3,9 +3,8 @@
   import type { LibraryGroup, LibraryJob } from '../lib/types';
   import { formatDuration } from '../lib/types';
 
-  let { addToast, navigate }: {
+  let { addToast }: {
     addToast: (msg: string, type?: string) => void;
-    navigate: (e: Event) => void;
   } = $props();
 
   let activeTab = $state<'movie' | 'series'>('movie');
@@ -88,7 +87,7 @@
       {#each items as group}
         <div class="library-card">
           <!-- Poster -->
-          <a href="#library-detail/{group.imdb_id}" onclick={navigate} class="poster-link">
+          <a href="#library-detail/{group.imdb_id}" class="poster-link">
             <div class="poster-container">
               {#if group.poster_url}
                 <img src={group.poster_url} alt={group.title || 'Poster'} class="poster" />
@@ -243,11 +242,6 @@
     margin-bottom: 0.5rem;
   }
 
-  .card-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
 
   .pagination {
     display: flex;
@@ -287,10 +281,5 @@
     flex: 1;
     color: var(--text-muted);
     font-size: 0.8rem;
-  }
-
-  .episode-actions {
-    display: flex;
-    gap: 0.25rem;
   }
 </style>

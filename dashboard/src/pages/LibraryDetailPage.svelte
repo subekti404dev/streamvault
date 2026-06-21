@@ -4,10 +4,9 @@
   import type { LibraryDetail, LibraryJob, StremioVideo } from '../lib/types';
   import { formatDuration } from '../lib/types';
 
-  let { id, addToast, navigate }: {
+  let { id, addToast }: {
     id: string;
     addToast: (msg: string, type?: string) => void;
-    navigate: (e: Event) => void;
   } = $props();
 
   let detail = $state<LibraryDetail | null>(null);
@@ -107,7 +106,6 @@
   async function deleteJob(jobId: string) {
     try {
       await api.deleteJob(jobId);
-      addToast('Job deleted', 'info');
       detail = await api.getLibraryItem(id);
     } catch (e: any) {
       addToast(`Delete failed: ${e.message}`, 'error');
@@ -116,7 +114,7 @@
 </script>
 
 <div class="page">
-  <a href="#library" onclick={navigate} class="back-link">
+  <a href="#library" class="back-link">
     ← Back to Library
   </a>
 

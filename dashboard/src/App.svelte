@@ -26,14 +26,6 @@
     toasts = toasts.filter(t => t.id !== id);
   }
 
-  function navigate(e: Event) {
-    const target = e.currentTarget as HTMLAnchorElement;
-    e.preventDefault();
-    const href = target.getAttribute('href') ?? '';
-    // Setting hash triggers hashchange event → parseHash()
-    window.location.hash = href;
-    closeDrawer();
-  }
   let drawerOpen = $state(false);
 
   function toggleDrawer() { drawerOpen = !drawerOpen; }
@@ -80,17 +72,12 @@
   parseHash();
 
   $effect(() => {
-    if (token) {
-      connectSSE();
-    }
-    return () => disconnectSSE();
-  });
-
-  // Listen for hash changes (e.g., from direct URL changes)
-  $effect(() => {
-    const handler = () => parseHash();
-    window.addEventListener('hashchange', handler);
-    return () => window.removeEventListener('hashchange', handler);
+    const onHashChange = () => {
+      parseHash();
+      closeDrawer();
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   });
 
   function onKeyDown(e: KeyboardEvent) {
@@ -183,15 +170,15 @@
     {#if currentRoute === 'search'}
       <SearchPage {addToast} {routeParams} />
     {:else if currentRoute === 'queue'}
-      <QueuePage {addToast} {navigate} />
+      <QueuePage {addToast} />
     {:else if currentRoute === 'job'}
-      <JobDetailPage id={routeParams.id || ''} {addToast} {navigate} />
+      <JobDetailPage id={routeParams.id || ''} {addToast} />
     {:else if currentRoute === 'settings'}
       <SettingsPage {addToast} />
     {:else if currentRoute === 'library'}
-      <LibraryPage {addToast} {navigate} />
+      <LibraryPage {addToast} />
     {:else if currentRoute === 'library-detail'}
-      <LibraryDetailPage id={routeParams.id || ''} {addToast} {navigate} />
+      <LibraryDetailPage id={routeParams.id || ''} {addToast} />
     {/if}
   </main>
 {/if}
