@@ -128,12 +128,12 @@
           <path d="M3 12h18M3 6h18M3 18h18"/>
         </svg>
       </button>
-      <a href="#search" onclick={navigate} class="nav-brand">StreamVault</a>
+      <a href="#search" class="nav-brand">StreamVault</a>
       <div class="nav-links">
-        <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
-        <a href="#queue" onclick={navigate} class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
-        <a href="#library" onclick={navigate} class="nav-link" class:active={currentRoute === 'library'}>Library</a>
-        <a href="#settings" onclick={navigate} class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
+        <a href="#search" class="nav-link" class:active={currentRoute === 'search'}>Search</a>
+        <a href="#queue" class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
+        <a href="#library" class="nav-link" class:active={currentRoute === 'library'}>Library</a>
+        <a href="#settings" class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
       </div>
       <div class="nav-right">
         <span class="connection-dot" class:connected={$sseConnected} class:disconnected={!$sseConnected}></span>
@@ -154,10 +154,10 @@
         </button>
       </div>
       <div class="drawer-links">
-        <a href="#search" onclick={navigate} class="nav-link" class:active={currentRoute === 'search'}>Search</a>
-        <a href="#queue" onclick={navigate} class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
-        <a href="#library" onclick={navigate} class="nav-link" class:active={currentRoute === 'library'}>Library</a>
-        <a href="#settings" onclick={navigate} class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
+        <a href="#search" class="nav-link" class:active={currentRoute === 'search'}>Search</a>
+        <a href="#queue" class="nav-link" class:active={currentRoute === 'queue'}>Queue</a>
+        <a href="#library" class="nav-link" class:active={currentRoute === 'library'}>Library</a>
+        <a href="#settings" class="nav-link" class:active={currentRoute === 'settings'}>Settings</a>
       </div>
       <div class="drawer-footer">
         <span class="connection-dot" class:connected={$sseConnected} class:disconnected={!$sseConnected}></span>
