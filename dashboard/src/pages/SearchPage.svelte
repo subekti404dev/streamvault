@@ -35,6 +35,25 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     catalogResults.filter(item => item.type === 'series')
   );
 
+  // View stack for back navigation
+  function pushView() {
+    history.pushState(null, '');
+  }
+
+  // popstate: back through sub-views
+  $effect(() => {
+    const onPop = () => {
+      if (result) {
+        result = null;
+      } else if (selectedItem) {
+        selectedItem = null;
+        seriesMeta = null;
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  });
+
   const availableSeasons = $derived(() => {
     if (!seriesMeta?.videos) return [];
     return [...new Set(seriesMeta.videos
@@ -112,8 +131,9 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       loading = false;
     }
   }
-
+  
   async function selectItem(item: StremioMetaItem) {
+    pushView();
     selectedItem = item;
     result = null;
     error = '';
@@ -434,7 +454,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
             </div>
           </div>
         {/if}
-        <button class="btn btn-primary" onclick={handleImdbSearch} disabled={loading}>
+        <button class="btn btn-primary" onclick={() => { pushView(); handleImdbSearch(); }} disabled={loading}>
           {loading ? 'Searching...' : 'Search Torrents'}
         </button>
       </div>
