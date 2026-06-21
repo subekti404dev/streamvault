@@ -1,7 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api';
-  import type { LibraryGroup, LibraryJob } from '../lib/types';
-  import { formatDuration } from '../lib/types';
+  import type { LibraryGroup } from '../lib/types';
 
   let { addToast }: {
     addToast: (msg: string, type?: string) => void;
@@ -13,7 +12,6 @@
   let page = $state(1);
   let limit = 20;
   let loading = $state(true);
-  let expandedSeries = $state<Set<string>>(new Set());
 
   async function loadLibrary() {
     loading = true;
@@ -31,18 +29,9 @@
   function switchTab(tab: 'movie' | 'series') {
     activeTab = tab;
     page = 1;
-    expandedSeries.clear();
     loadLibrary();
   }
 
-  function toggleExpand(imdbId: string) {
-    if (expandedSeries.has(imdbId)) {
-      expandedSeries.delete(imdbId);
-    } else {
-      expandedSeries.add(imdbId);
-    }
-    expandedSeries = expandedSeries;
-  }
 
 
 
@@ -105,30 +94,6 @@
             <div class="episode-count">{group.job_count} episodes</div>
           {/if}
 
-          {#if group.media_type === 'series'}
-            <button class="btn btn-sm" onclick={() => toggleExpand(group.imdb_id)} style="margin-top:0.5rem;">
-              {expandedSeries.has(group.imdb_id) ? '▴ Collapse' : '▾ Episodes'}
-            </button>
-          {/if}
-
-
-          {#if group.media_type === 'series' && expandedSeries.has(group.imdb_id)}
-            <div class="episodes-list">
-              {#each group.jobs as job}
-                <div class="episode-row">
-                  <span class="episode-badge">
-                    S{String(job.season ?? 0).padStart(2, '0')}E{String(job.episode ?? 0).padStart(2, '0')}
-                  </span>
-                  <span class="episode-info">
-                    {job.video_resolution || 'N/A'}
-                    {#if job.duration_seconds}
-                      · {formatDuration(job.duration_seconds)}
-                    {/if}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {/if}
         </div>
       {/each}
     </div>
@@ -257,29 +222,4 @@
     font-size: 0.9rem;
   }
 
-  .episodes-list {
-    margin-top: 0.75rem;
-    border-top: 1px solid var(--border);
-    padding-top: 0.75rem;
-  }
-
-  .episode-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0;
-    font-size: 0.85rem;
-  }
-
-  .episode-badge {
-    font-family: monospace;
-    color: var(--primary);
-    min-width: 60px;
-  }
-
-  .episode-info {
-    flex: 1;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
 </style>
