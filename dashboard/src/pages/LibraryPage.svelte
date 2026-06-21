@@ -45,25 +45,7 @@
     expandedSeries = expandedSeries;
   }
 
-  async function requeueJob(jobId: string) {
-    try {
-      await api.requeueJob(jobId);
-      addToast('Job requeued for retranscode', 'success');
-      loadLibrary();
-    } catch (e: any) {
-      addToast(`Requeue failed: ${e.message}`, 'error');
-    }
-  }
 
-  async function deleteJob(jobId: string) {
-    try {
-      await api.deleteJob(jobId);
-      addToast('Job deleted', 'info');
-      loadLibrary();
-    } catch (e: any) {
-      addToast(`Delete failed: ${e.message}`, 'error');
-    }
-  }
 
   const totalPages = $derived(Math.ceil(total / limit));
 
@@ -124,49 +106,13 @@
             <div class="episode-count">{group.job_count} episodes</div>
           {/if}
 
-          <!-- Actions -->
-          <div class="card-actions">
-            {#if group.media_type === 'movie'}
-              <a
-                href="/proxy/hls/{group.jobs[0]?.id}/master.m3u8"
-                target="_blank"
-                class="btn btn-sm btn-primary"
-              >
-                ▶ Play
-              </a>
-              <button
-                class="btn btn-sm"
-                onclick={() => requeueJob(group.jobs[0]?.id)}
-              >
-                ↻ Retranscode
-              </button>
-              <button
-                class="btn btn-sm btn-danger"
-                onclick={() => deleteJob(group.jobs[0]?.id)}
-              >
-                ✗ Delete
-              </button>
-            {:else}
-              <button
-                class="btn btn-sm"
-                onclick={() => toggleExpand(group.imdb_id)}
-              >
-                {expandedSeries.has(group.imdb_id) ? '▴ Collapse' : '▾ Episodes'}
-              </button>
-              <button
-                class="btn btn-sm btn-danger"
-                onclick={() => {
-                  for (const job of group.jobs) {
-                    deleteJob(job.id);
-                  }
-                }}
-              >
-                ✗ Delete All
-              </button>
-            {/if}
-          </div>
+          {#if group.media_type === 'series'}
+            <button class="btn btn-sm" onclick={() => toggleExpand(group.imdb_id)} style="margin-top:0.5rem;">
+              {expandedSeries.has(group.imdb_id) ? '▴ Collapse' : '▾ Episodes'}
+            </button>
+          {/if}
 
-          <!-- Expanded Episodes -->
+
           {#if group.media_type === 'series' && expandedSeries.has(group.imdb_id)}
             <div class="episodes-list">
               {#each group.jobs as job}
@@ -180,27 +126,6 @@
                       · {formatDuration(job.duration_seconds)}
                     {/if}
                   </span>
-                  <div class="episode-actions">
-                    <a
-                      href="/proxy/hls/{job.id}/master.m3u8"
-                      target="_blank"
-                      class="btn btn-xs btn-primary"
-                    >
-                      ▶
-                    </a>
-                    <button
-                      class="btn btn-xs"
-                      onclick={() => requeueJob(job.id)}
-                    >
-                      ↻
-                    </button>
-                    <button
-                      class="btn btn-xs btn-danger"
-                      onclick={() => deleteJob(job.id)}
-                    >
-                      ✗
-                    </button>
-                  </div>
                 </div>
               {/each}
             </div>
