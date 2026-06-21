@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '../lib/api';
   import { onMount } from 'svelte';
-  import type { SearchResult, Torrent, StremioMetaItem } from '../lib/types';
+  import type { SearchResult, Torrent, StremioMetaItem, StremioMetaDetail } from '../lib/types';
   import { formatBytes } from '../lib/types';
 
 const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999';
@@ -27,6 +27,33 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let inspectedFiles = $state<{index: number; name: string; size_bytes: number}[]>([]);
   let selectedFileIdx = $state(0);
   let torrentName = $state('');
+  let seriesMeta = $state<StremioMetaDetail | null>(null);
+  const movieResults = $derived(
+    catalogResults.filter(item => item.type === 'movie')
+  );
+  const seriesResults = $derived(
+    catalogResults.filter(item => item.type === 'series')
+  );
+
+  const availableSeasons = $derived(() => {
+    if (!seriesMeta?.videos) return [];
+    return [...new Set(seriesMeta.videos
+      .map(v => v.season)
+      .filter((s): s is number => s != null)
+    )].sort((a, b) => a - b);
+  });
+
+  const availableEpisodes = $derived(() => {
+    if (!seriesMeta?.videos) return [];
+    return seriesMeta.videos
+      .filter(v => v.season === season)
+      .sort((a, b) => (a.episode ?? 0) - (b.episode ?? 0));
+  });
+
+  function handleSeasonChange(newSeason: number) {
+    season = newSeason;
+    episode = 1;
+  }
 
   onMount(async () => {
     try {
@@ -61,15 +88,17 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     selectedItem = item;
     result = null;
     error = '';
+    seriesMeta = null;
     
     let resolvedImdbId = item.id;
     let resolvedType = item.type;
     
-    if (item.type === 'series' && !item.id.startsWith('tt')) {
+    if (item.type === 'series') {
       try {
         loading = true;
         const metaResponse = await api.getStremioMeta(item.type, item.id, metadataBaseUrl);
         resolvedImdbId = metaResponse.meta.imdb_id || item.id;
+        seriesMeta = metaResponse.meta;
       } catch (e: any) {
         error = `Failed to fetch metadata: ${e.message}`;
         loading = false;
@@ -266,29 +295,55 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   {/if}
 
   {#if catalogResults.length > 0 && !selectedItem}
-    <h3 class="mt-6 mb-3 text-secondary">
-      {catalogResults.length} result(s)
-    </h3>
-    <div class="results-grid">
-      {#each catalogResults as item}
-        <button class="result-card" onclick={() => selectItem(item)}>
-          {#if item.poster}
-            <img src={item.poster} alt={item.name} class="result-poster" />
-          {:else}
-            <div class="result-poster-placeholder"></div>
-          {/if}
-          <div class="result-info">
-            <span class="result-title">{item.name}</span>
-            <div class="result-meta">
-              {#if item.year}
-                <span class="badge">{item.year}</span>
-              {/if}
-              <span class="badge">{item.type}</span>
+    {#if movieResults.length > 0}
+      <h3 class="mt-6 mb-3 text-secondary">
+        Movies ({movieResults.length})
+      </h3>
+      <div class="results-grid">
+        {#each movieResults as item}
+          <button class="result-card" onclick={() => selectItem(item)}>
+            {#if item.poster}
+              <img src={item.poster} alt={item.name} class="result-poster" />
+            {:else}
+              <div class="result-poster-placeholder"></div>
+            {/if}
+            <div class="result-info">
+              <span class="result-title">{item.name}</span>
+              <div class="result-meta">
+                {#if item.year}
+                  <span class="badge">{item.year}</span>
+                {/if}
+              </div>
             </div>
-          </div>
-        </button>
-      {/each}
-    </div>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    {#if seriesResults.length > 0}
+      <h3 class="mt-6 mb-3 text-secondary">
+        Series ({seriesResults.length})
+      </h3>
+      <div class="results-grid">
+        {#each seriesResults as item}
+          <button class="result-card" onclick={() => selectItem(item)}>
+            {#if item.poster}
+              <img src={item.poster} alt={item.name} class="result-poster" />
+            {:else}
+              <div class="result-poster-placeholder"></div>
+            {/if}
+            <div class="result-info">
+              <span class="result-title">{item.name}</span>
+              <div class="result-meta">
+                {#if item.year}
+                  <span class="badge">{item.year}</span>
+                {/if}
+              </div>
+            </div>
+          </button>
+        {/each}
+      </div>
+    {/if}
   {/if}
 
   {#if selectedItem && !result}
@@ -309,16 +364,47 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
     {#if selectedItem.type === 'series'}
       <div class="season-episode-card">
-        <div class="grid-2">
-          <div class="form-group">
-            <label for="selected-season">Season</label>
-            <input id="selected-season" type="number" bind:value={season} min="1" />
+        {#if availableSeasons().length > 0}
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="selected-season">Season</label>
+              <select
+                id="selected-season"
+                value={season}
+                onchange={(e) => handleSeasonChange(Number(e.currentTarget.value))}
+              >
+                {#each availableSeasons() as s}
+                  <option value={s}>Season {s}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="selected-episode">Episode</label>
+              <select
+                id="selected-episode"
+                value={episode}
+                onchange={(e) => episode = Number(e.currentTarget.value)}
+              >
+                {#each availableEpisodes() as ep}
+                  <option value={ep.episode ?? 1}>
+                    S{String(season).padStart(2, '0')}E{String(ep.episode ?? 0).padStart(2, '0')} - {ep.title}
+                  </option>
+                {/each}
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="selected-episode">Episode</label>
-            <input id="selected-episode" type="number" bind:value={episode} min="1" />
+        {:else}
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="selected-season">Season</label>
+              <input id="selected-season" type="number" bind:value={season} min="1" />
+            </div>
+            <div class="form-group">
+              <label for="selected-episode">Episode</label>
+              <input id="selected-episode" type="number" bind:value={episode} min="1" />
+            </div>
           </div>
-        </div>
+        {/if}
         <button class="btn btn-primary" onclick={handleImdbSearch} disabled={loading}>
           {loading ? 'Searching...' : 'Search Torrents'}
         </button>
