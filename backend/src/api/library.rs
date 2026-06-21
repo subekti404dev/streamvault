@@ -39,3 +39,11 @@ pub async fn requeue_job(
         status: "queued".to_string(),
     }))
 }
+
+pub async fn get_library_item(
+    State(state): State<Arc<AppState>>,
+    Path(imdb_id): Path<String>,
+) -> AppResult<Json<queries::LibraryDetail>> {
+    let detail = queries::get_library_detail(&state.db, &imdb_id).await?;
+    Ok(Json(detail))
+}

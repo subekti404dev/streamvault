@@ -94,6 +94,14 @@ export interface LibraryResponse {
   limit: number;
 }
 
+export interface LibraryDetail {
+  imdb_id: string;
+  title: string | null;
+  poster_url: string | null;
+  media_type: string;
+  jobs: LibraryJob[];
+}
+
 export type AppSettings = Record<string, string>;
 
 export interface StremioCatalogResponse {

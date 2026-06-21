@@ -1,4 +1,4 @@
-import type { SearchResult, QueueList, JobDetail, AppSettings, StremioCatalogResponse, StremioMetaResponse, LibraryResponse } from './types';
+import type { SearchResult, QueueList, JobDetail, AppSettings, StremioCatalogResponse, StremioMetaResponse, LibraryResponse, LibraryDetail } from './types';
 
 const BASE = '/api/v1';
 
@@ -145,6 +145,12 @@ export const api = {
         method: 'POST',
         headers: headers()
       })
+    );
+  },
+
+  getLibraryItem: async (imdbId: string): Promise<LibraryDetail> => {
+    return handleResponse<LibraryDetail>(
+      await fetch(`${BASE}/library/${imdbId}`, { headers: headers() })
     );
   },
 };

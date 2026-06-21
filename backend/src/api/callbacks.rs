@@ -99,6 +99,10 @@ pub async fn complete_callback(
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
+    // Get job before updating to capture gh_run_id
+    let job = queries::get_job(&state.db, &id).await.ok();
+    let gh_run_id = job.as_ref().and_then(|j| j.gh_run_id.clone());
+
     queries::update_job_completed(&state.db, &id, resolution, duration).await?;
 
     queries::insert_job_event(
@@ -111,12 +115,32 @@ pub async fn complete_callback(
     });
 
     // Telegram notification
-    let title = queries::get_job(&state.db, &id).await
-        .ok()
-        .and_then(|j| j.title)
-        .unwrap_or_default();
+    let title = job.as_ref().and_then(|j| j.title.clone()).unwrap_or_default();
     let details = format!("{} resolution, {:.0}s duration", resolution, duration);
     notifications::send_notification(&state, TelegramEvent::JobCompleted(title, details));
+
+    // Delete GitHub Actions run if configured
+    if let Some(run_id) = gh_run_id {
+        let config = state.config.read().await;
+        if let (Some(token), Some(repo)) = (&config.gh_token, &config.gh_repo) {
+            let token = token.clone();
+            let repo = repo.clone();
+            drop(config);
+            if let Some((owner, repo_name)) = repo.split_once('/') {
+                let url = format!("https://api.github.com/repos/{}/{}/actions/runs/{}", owner, repo_name, run_id);
+                let _ = state.http.delete(&url)
+                    .bearer_auth(&token)
+                    .header("Accept", "application/vnd.github+json")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .send()
+                    .await;
+                queries::insert_job_event(
+                    &state.db, &id, None, "cleanup",
+                    &format!("GitHub Actions run {} deleted", run_id), None,
+                ).await.ok();
+            }
+        }
+    }
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }

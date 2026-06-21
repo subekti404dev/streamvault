@@ -62,6 +62,22 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     } catch (e) {
       metadataBaseUrl = DEFAULT_METADATA_URL;
     }
+
+    // Check for prefill from library detail
+    const prefillRaw = localStorage.getItem('sv_search_prefill');
+    if (prefillRaw) {
+      try {
+        const prefill = JSON.parse(prefillRaw);
+        localStorage.removeItem('sv_search_prefill');
+        imdbId = prefill.imdb_id || '';
+        season = prefill.season || 1;
+        episode = prefill.episode || 1;
+        showImdbSearch = true;
+        if (imdbId) {
+          await handleImdbSearch();
+        }
+      } catch {}
+    }
   });
 
   async function handleQuerySearch() {

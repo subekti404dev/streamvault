@@ -6,6 +6,7 @@
   import JobDetailPage from './pages/JobDetailPage.svelte';
   import SettingsPage from './pages/SettingsPage.svelte';
   import LibraryPage from './pages/LibraryPage.svelte';
+  import LibraryDetailPage from './pages/LibraryDetailPage.svelte';
   import Toast from './lib/Toast.svelte';
 
   let currentRoute = $state('search');
@@ -166,6 +167,8 @@
       <SettingsPage {addToast} />
     {:else if currentRoute === 'library'}
       <LibraryPage {addToast} {navigate} />
+    {:else if currentRoute === 'library-detail'}
+      <LibraryDetailPage id={routeParams.id || ''} {addToast} {navigate} />
     {/if}
   </main>
 {/if}

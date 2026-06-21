@@ -139,6 +139,15 @@ pub struct LibraryResponse {
     pub limit: i64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LibraryDetail {
+    pub imdb_id: String,
+    pub title: Option<String>,
+    pub poster_url: Option<String>,
+    pub media_type: String,
+    pub jobs: Vec<LibraryJob>,
+}
+
 // ── Jobs ──
 
 pub async fn insert_job(pool: &SqlitePool, job: &NewJob) -> AppResult<()> {
@@ -474,4 +483,60 @@ pub async fn requeue_job(pool: &SqlitePool, job_id: &str) -> AppResult<()> {
     }
 
     Ok(())
+}
+
+pub async fn get_library_detail(
+    pool: &SqlitePool,
+    imdb_id: &str,
+) -> AppResult<LibraryDetail> {
+    let jobs = sqlx::query_as::<_, LibraryJob>(
+        r#"
+        SELECT id, title, season, episode, status, video_resolution, duration_seconds, created_at
+        FROM jobs
+        WHERE imdb_id = ? AND status = 'completed'
+        ORDER BY season, episode
+        "#
+    )
+    .bind(imdb_id)
+    .fetch_all(pool)
+    .await?;
+
+    if jobs.is_empty() {
+        return Err(AppError::NotFound(format!("No completed jobs for {}", imdb_id)));
+    }
+
+    let first_job = &jobs[0];
+
+    // Get poster from jobs or cinemeta_cache
+    let poster_url = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT poster_url FROM jobs WHERE imdb_id = ? AND poster_url IS NOT NULL LIMIT 1"
+    )
+    .bind(imdb_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+
+    let final_poster = if poster_url.is_some() {
+        poster_url
+    } else {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT poster_url FROM cinemeta_cache WHERE imdb_id = ?"
+        )
+        .bind(imdb_id)
+        .fetch_optional(pool)
+        .await?
+        .flatten()
+    };
+
+    Ok(LibraryDetail {
+        imdb_id: imdb_id.to_string(),
+        title: first_job.title.clone(),
+        poster_url: final_poster,
+        media_type: if jobs.iter().any(|j| j.season.is_some()) {
+            "series".to_string()
+        } else {
+            "movie".to_string()
+        },
+        jobs,
+    })
 }

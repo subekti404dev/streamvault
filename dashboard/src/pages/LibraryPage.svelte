@@ -106,18 +106,18 @@
       {#each items as group}
         <div class="library-card">
           <!-- Poster -->
-          <div class="poster-container">
-            {#if group.poster_url}
-              <img src={group.poster_url} alt={group.title || 'Poster'} class="poster" />
-            {:else}
-              <div class="poster placeholder">
-                {group.media_type === 'movie' ? '🎬' : '📺'}
-              </div>
-            {/if}
-          </div>
-
-          <!-- Title -->
-          <div class="card-title">{group.title || group.imdb_id}</div>
+          <a href="#library-detail/{group.imdb_id}" onclick={navigate} class="poster-link">
+            <div class="poster-container">
+              {#if group.poster_url}
+                <img src={group.poster_url} alt={group.title || 'Poster'} class="poster" />
+              {:else}
+                <div class="poster placeholder">
+                  {group.media_type === 'movie' ? '🎬' : '📺'}
+                </div>
+              {/if}
+            </div>
+            <div class="card-title">{group.title || group.imdb_id}</div>
+          </a>
 
           <!-- Episode count for series -->
           {#if group.media_type === 'series'}
@@ -271,6 +271,15 @@
 
   .library-card:hover {
     border-color: var(--primary);
+  }
+  .poster-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .poster-link:hover {
+    color: inherit;
   }
 
   .poster-container {
