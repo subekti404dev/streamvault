@@ -86,16 +86,7 @@ export async function streamHandler(c: Context<AppBindings>) {
     );
   }
 
-  if (!matched) {
-    // Debug: show why
-    const candidates = allCompleted.filter(j => j.imdbId === imdbId);
-    console.log("[stream] NOT FOUND imdbId=%s season=%s episode=%s allCompleted=%d candidates=%d",
-      imdbId, season, episode, allCompleted.length, candidates.length);
-    if (candidates.length > 0) {
-      console.log("[stream] candidate seasons:", candidates.map(j => JSON.stringify({season: j.season, episode: j.episode})));
-    }
-    return c.json({ streams: [], _debug: { imdbId, season, episode, totalCompleted: allCompleted.length, candidates: candidates.length } });
-  }
+  if (!matched) return c.json({ streams: [] });
 
   const baseUrl = c.var.config.publicBaseUrl;
   const resolution = matched.videoResolution || "HD";
