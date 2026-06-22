@@ -114,7 +114,8 @@ jobs:
             "${{ inputs.callback_url }}" \
             "${{ inputs.callback_token }}" \
             "${{ inputs.magnet_uri }}" \
-            "${{ inputs.file_idx }}"
+            "${{ inputs.file_idx }}" \
+            "${{ inputs.torrent_name }}"
 
       - name: Save download checkpoint
         if: inputs.skip_download != 'true'
