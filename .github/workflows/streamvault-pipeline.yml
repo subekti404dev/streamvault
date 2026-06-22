@@ -131,6 +131,8 @@ jobs:
           chmod +x .github/scripts/*.sh
           .github/scripts/upload-checkpoint.sh \
             "${{ inputs.job_id }}" "download" "./downloads"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Detect source resolution
         id: detect
@@ -308,6 +310,8 @@ jobs:
           chmod +x .github/scripts/*.sh
           .github/scripts/upload-checkpoint.sh \
             "${{ inputs.job_id }}" "transcode" "./hls"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Upload to Discord
         env:
