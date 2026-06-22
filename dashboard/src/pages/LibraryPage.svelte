@@ -10,6 +10,8 @@
   let activeTab = $state<'movie' | 'series'>('movie');
   let items = $state<LibraryGroup[]>([]);
   let total = $state(0);
+  let movieTotal = $state(0);
+  let seriesTotal = $state(0);
   let page = $state(1);
   let limit = 20;
   let loading = $state(true);
@@ -20,10 +22,19 @@
       const data = await api.getLibrary(activeTab, page, limit);
       items = data.items;
       total = data.total;
+      if (activeTab === 'movie') movieTotal = data.total;
+      else seriesTotal = data.total;
     } catch (e: any) {
       addToast(`Failed to load library: ${e.message}`, 'error');
     } finally {
       loading = false;
+    }
+
+    // Also fetch the other tab's count for display
+    if (movieTotal === 0 && activeTab === 'series') {
+      api.getLibrary('movie', 1, 1).then(d => movieTotal = d.total).catch(() => {});
+    } else if (seriesTotal === 0 && activeTab === 'movie') {
+      api.getLibrary('series', 1, 1).then(d => seriesTotal = d.total).catch(() => {});
     }
   }
 
@@ -48,7 +59,6 @@
     return () => unsub();
   });
 </script>
-
 <div class="page">
   <h1 class="page-title">Library</h1>
   <p class="page-subtitle">Browse your completed content</p>
@@ -60,14 +70,14 @@
       class:active={activeTab === 'movie'}
       onclick={() => switchTab('movie')}
     >
-      Movies {#if activeTab === 'movie'}({total}){/if}
+      Movies ({movieTotal})
     </button>
     <button
       class="tab"
       class:active={activeTab === 'series'}
       onclick={() => switchTab('series')}
     >
-      Series {#if activeTab === 'series'}({total}){/if}
+      Series ({seriesTotal})
     </button>
   </div>
 
