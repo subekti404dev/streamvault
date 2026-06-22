@@ -6,3 +6,4 @@ dashboard/dist/
 *.db-shm
 node_modules/
 .vite/
+backend-bun/streamvault
