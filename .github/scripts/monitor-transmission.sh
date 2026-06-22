@@ -85,11 +85,12 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
     if ! $META_READY; then
       echo "  WARNING: Metadata not loaded after 60s, downloading all files"
     else
-      # transmission-remote outputs torrent name/summary on stderr — suppress it
+      # transmission-remote --info-files outputs:
+      #   stderr: summary lines (skip)
+      #   stdout: header "#  Done Priority..." then entries like "0  Partial ..."
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-      # Skip header lines, count file entries. Sanitize to a single integer.
-      FILE_COUNT=$(echo "$FILE_OUT" | tail -n +3 | grep -cE '^[[:space:]]*[0-9]' || echo 0)
-      FILE_COUNT=$(echo "$FILE_COUNT" | tr -d '\n\r' | grep -oE '[0-9]+' | head -1)
+      # Count only real file entries (lines with a number followed by status word)
+      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]+(Partial|Done|wanted|unwanted)' || echo 0)
       FILE_COUNT=${FILE_COUNT:-0}
 
       # File list may arrive AFTER name metadata — wait for it
@@ -98,8 +99,7 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
         for attempt in $(seq 1 12); do
           sleep 5
           FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-          FILE_COUNT=$(echo "$FILE_OUT" | tail -n +3 | grep -cE '^[[:space:]]*[0-9]' || echo 0)
-          FILE_COUNT=$(echo "$FILE_COUNT" | tr -d '\n\r' | grep -oE '[0-9]+' | head -1)
+          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]+(Partial|Done|wanted|unwanted)' || echo 0)
           FILE_COUNT=${FILE_COUNT:-0}
           if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
             echo "  File list received!"
@@ -110,7 +110,7 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
       fi
 
       echo "  Detected $FILE_COUNT files:"
-      echo "$FILE_OUT" | head -20
+      echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]' | head -20
 
       if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
         # Detect indexing: colon format (0:, 1:) = 0-based; tabular (1  , 2  ) = 1-based
