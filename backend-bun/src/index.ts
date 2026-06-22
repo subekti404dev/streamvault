@@ -7,7 +7,7 @@ import { recoverStaleJobs } from "./worker/monitor";
 import { worker } from "./worker/scheduler";
 
 const config = loadConfig();
-const db = createDb();
+const db = createDb(config.databaseUrl);
 const eventBus = new EventBus();
 
 // Set globals for background worker (scheduler)
