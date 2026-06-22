@@ -19,7 +19,7 @@ export function createApp(config: Config, db: DrizzleDB, eventBus: EventBus): Ho
   const app = new Hono<AppBindings>();
 
   app.use("*", logger());
-  app.use("*", cors({ origin: "*", allowMethods: ["*"], allowHeaders: ["*"] }));
+  app.use("*", cors({ origin: (origin) => origin, allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], allowHeaders: ["*"], credentials: true, maxAge: 86400 }));
 
   app.use("*", async (c, next) => {
     c.set("config", config);

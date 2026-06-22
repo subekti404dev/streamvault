@@ -69,6 +69,7 @@ export async function updateSettings(c: Context<AppBindings>) {
       case "telegram_channel_id": config.telegramChannelId = value; break;
       case "torrentio_base_url": config.torrentioBaseUrl = value; break;
       case "public_base_url": config.publicBaseUrl = value; break;
+      case "auth_secret": config.authSecret = value; break;
     }
   }
   return c.json({ status: "saved" });

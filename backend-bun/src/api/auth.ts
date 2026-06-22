@@ -2,7 +2,9 @@ import { createMiddleware } from "hono/factory";
 import type { AppBindings } from "../app";
 
 export const authMiddleware = createMiddleware<AppBindings>(async (c, next) => {
-  const headerToken = c.req.header("Authorization")?.replace("Bearer ", "");
+  const headerToken = c.req.header("Authorization")?.startsWith("Bearer ")
+    ? c.req.header("Authorization")!.slice(7)
+    : undefined;
   const queryToken = c.req.query("token");
   const token = headerToken || queryToken;
 
