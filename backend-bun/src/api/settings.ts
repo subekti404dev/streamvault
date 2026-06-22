@@ -96,8 +96,9 @@ export async function testNotification(c: Context<AppBindings>) {
   });
 
   if (!resp.ok) {
-    const text = await resp.text();
-    throw internal(`Telegram API error: ${text}`);
+    const text = await resp.text().catch(() => "");
+    console.error("[settings] Telegram test failed:", resp.status, text);
+    return c.json({ error: `Telegram API error (${resp.status}): ${text}` }, 502);
   }
 
   return c.json({ ok: true });
