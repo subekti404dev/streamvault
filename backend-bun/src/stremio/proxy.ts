@@ -26,7 +26,7 @@ function resolveBaseUrl(c: Context<AppBindings>): string {
 export async function playlistHandler(c: Context<AppBindings>) {
   const jobId = c.req.param("jobId")!;
   const allChunks = queries.getHlsChunks(c.var.db, jobId);
-  const tsChunks = allChunks.filter((ch) => ch.filename.endsWith(".ts"));
+  const tsChunks = allChunks.filter((ch) => ch.filename.endsWith(".ts") && ch.discordUrl != null);
 
   if (tsChunks.length === 0) {
     throw notFound("No HLS segments found");

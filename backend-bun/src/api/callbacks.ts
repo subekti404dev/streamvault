@@ -31,7 +31,7 @@ export async function progressCallback(c: Context<AppBindings>): Promise<Respons
     const chunk = body.chunk as Record<string, any>;
     queries.insertHlsChunk(c.var.db, {
       jobId: id,
-      chunkIndex: chunk.index ?? 0,
+      chunkIndex: chunk.chunk_index ?? chunk.index ?? 0,
       filename: chunk.filename ?? "",
       discordUrl: chunk.discord_url ?? null,
       discordMessageId: chunk.discord_message_id ?? null,
