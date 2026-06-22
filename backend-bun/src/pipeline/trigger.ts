@@ -106,6 +106,9 @@ async function triggerPipeline(
   const ghRepo = getSettingOrEnv(c, "gh_repo");
   if (!ghRepo) throw badRequest("GitHub repo not configured");
 
+  if (!job.magnetUri || !job.magnetUri.trim()) {
+    throw badRequest("Job has no magnet_uri — cannot trigger download workflow");
+  }
   const baseUrl = c.var.config.publicBaseUrl;
   const callbackToken = c.var.config.authSecret;
   const discordChannel = await getDiscordChannel(c, job.id);
