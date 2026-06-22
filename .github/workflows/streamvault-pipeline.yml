@@ -148,6 +148,7 @@ jobs:
 
             if [ -n "$INPUT_FILE" ]; then
               echo "✓ Found exact file: $INPUT_FILE"
+            else
               BASE_NAME=$(basename "$FILENAME" | sed 's/\.[^.]*$//')
               INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
                 -not -name "*.log" -not -name "*.torrent" \
@@ -167,12 +168,13 @@ jobs:
             if [ -n "$INPUT_FILE" ]; then
               echo "⚠ Fallback: found video by extension (largest): $INPUT_FILE"
             fi
+          fi
+
           if [ -z "$INPUT_FILE" ]; then
             echo "❌ Error: No video file found in ./downloads"
             ls -la ./downloads/
             exit 1
           fi
-
           echo "input_file=$INPUT_FILE" >> "$GITHUB_OUTPUT"
           echo "Input file: $INPUT_FILE"
           echo "File size: $(du -h "$INPUT_FILE" | cut -f1)"
