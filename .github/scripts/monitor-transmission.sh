@@ -89,9 +89,9 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
       #   stderr: summary lines (skip)
       #   stdout: header "#  Done Priority..." then entries like "0  Partial ..."
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-      # Count file entries — match "0  Partial" (tabular) or "0:  0%" (colon) or "1   0.0%  None"
-      # Exclude header line (starts with "ID" or "#") and metadata lines (emoji/text before number)
-      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]' || true)
+      # Count file entries — match any line starting with whitespace + digits
+      # Handles all transmission formats: tabular "0  Partial", colon "0:  0%", standard "1   0.0%"
+      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+' || true)
       FILE_COUNT=${FILE_COUNT:-0}
 
       # File list may arrive AFTER name metadata — wait for it
@@ -99,7 +99,8 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
         echo "  Metadata name loaded but no files yet — waiting for file list..."
         for attempt in $(seq 1 12); do
           sleep 5
-          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]' || true)
+          FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
+          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+' || true)
           FILE_COUNT=${FILE_COUNT:-0}
           if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
             echo "  File list received!"
@@ -110,7 +111,7 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
       fi
 
       echo "  Detected $FILE_COUNT files:"
-      echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+[[:space:]]' | head -20
+      echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -20
 
       if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
         # Detect indexing: colon format (0:, 1:) = 0-based; tabular (1  , 2  ) = 1-based
