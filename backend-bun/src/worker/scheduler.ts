@@ -70,9 +70,11 @@ async function tick(
     return;
   }
 
+  let picked = 0;
   for (let i = 0; i < slots; i++) {
     const job = getNextQueuedJob(db);
     if (!job) break;
+    picked++;
 
     updateJobStatus(db, job.id, "processing");
     insertJobEvent(
@@ -98,6 +100,10 @@ async function tick(
   }
 
   broadcastQueueUpdate(db, eventBus);
+
+  console.log(
+    `[scheduler] tick: max=${maxConcurrent} active=${activeCount} slots=${slots} picked=${picked}`,
+  );
 }
 
 /**
@@ -108,6 +114,11 @@ export function worker(
   config: Config,
   eventBus: EventBus,
 ): () => void {
+  console.log("[scheduler] started — tick interval:", TICK_MS / 1000, "s");
+  // Run first tick immediately, then schedule subsequent ticks
+  tick(db, config, eventBus).catch((e) => {
+    console.error("[scheduler] initial tick error:", e);
+  });
   const timer = setInterval(() => {
     tick(db, config, eventBus).catch((e) => {
       console.error("[scheduler] tick error:", e);
