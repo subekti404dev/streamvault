@@ -40,6 +40,7 @@
     token = loginInput.trim();
     showLogin = false;
     loginError = '';
+    connectSSE();
   }
 
   function handleLogout() {
@@ -70,6 +71,9 @@
 
   // Parse hash on initial load
   parseHash();
+  $effect(() => {
+    if (token) connectSSE();
+  });
 
   $effect(() => {
     const onHashChange = () => {
