@@ -89,8 +89,20 @@ else
     echo "  Metadata loaded, waiting for file list to populate..."
     TARGET=""
 
+    # Check file count from `--info-files` header: "Name (N files):"
+    FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
+    FILE_COUNT=$(echo "$FILE_OUT" | grep -oP '\(\K[0-9]+(?=\s*files?\))' | head -1)
+    if [ -z "$FILE_COUNT" ]; then
+      FILE_COUNT=0
+    fi
+    echo "  File count from --info-files header: $FILE_COUNT"
+
+    # Single-file or no-file: skip selection (already downloading all)
+    if [ "$FILE_COUNT" -le 1 ]; then
+      echo "  Single-file or no-file torrent — downloading entire torrent"
+    else
+
     # Wait for target file to appear in --info-files (up to 120s)
-    # Once torrent starts downloading, file entries populate with progress
     for attempt in $(seq 1 24); do
       sleep 5
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
@@ -99,11 +111,6 @@ else
       if [ $((attempt % 5)) -eq 0 ]; then
         echo "  [debug] --info-files raw output (attempt $attempt):"
         echo "$FILE_OUT" | head -10
-        echo "  [debug] ---"
-        # Also try --info for comparison
-        INFO_DEBUG=$(transmission-remote localhost:9092 -t "$TID" --info 2>/dev/null | grep -E 'Name:|Size:|File size:|Files:' | head -5)
-        echo "  [debug] --info metadata:"
-        echo "$INFO_DEBUG"
         echo "  [debug] ---"
       fi
 
@@ -138,10 +145,14 @@ else
         done
       fi
 
-      echo "  Still waiting... (attempt $attempt/24)"
+      # Check if file list appeared with any entries
+      if echo "$FILE_OUT" | grep -qE '^[[:space:]]*[0-9]+'; then
+        echo "  File list appeared ($(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+') files, no match yet — continuing download until match or timeout)"
+      fi
     done
 
     if [ -n "$TARGET" ]; then
+      echo "  Target file found at index $TARGET, selecting..."
       echo "  Detected file list:"
       echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -10
       # Pause torrent briefly, select only target file, resume
@@ -154,7 +165,8 @@ else
     else
       echo "  WARNING: Could not identify target file — downloading all files"
     fi
-  fi
+  fi  # end multi-file selection
+  fi  # end else META_READY
 fi
 
 LAST_PCT=-1
