@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import type { Job } from "../db/queries";
-import { badRequest } from "../error";
+import { badRequest, internal } from "../error";
 import { eq } from "drizzle-orm";
 import { jobs } from "../db/schema";
 import * as queries from "../db/queries";
@@ -144,7 +144,7 @@ async function triggerPipeline(
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw badRequest(`GitHub API error (${resp.status}): ${text}`);
+    throw internal(`GitHub API error (${resp.status}): ${text}`);
   }
 
   // GitHub creates run asynchronously; wait then poll

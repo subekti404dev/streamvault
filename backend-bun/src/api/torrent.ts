@@ -135,7 +135,7 @@ export async function inspectTorrent(c: Context<AppBindings>): Promise<Response>
       const fd = f as BencodeDict;
       const pathArr = fd.path;
       const fname = Array.isArray(pathArr) && pathArr.length > 0
-        ? String(pathArr[pathArr.length - 1])
+        ? pathArr.map(p => String(p)).join('/')
         : `file_${i}`;
       files.push({
         index: i,

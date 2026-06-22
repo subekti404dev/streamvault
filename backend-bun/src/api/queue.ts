@@ -75,7 +75,7 @@ export async function getJob(c: Context<AppBindings>) {
   const id = c.req.param("id") as string;
   const job = queries.getJob(c.var.db, id);
   const events = queries.getJobEvents(c.var.db, id);
-  const ghRepo = queries.getSetting(c.var.db, "gh_repo") ?? null;
+  const ghRepo = queries.getSetting(c.var.db, "gh_repo") || c.var.config.ghRepo || null;
 
   return c.json({ job, events, gh_repo: ghRepo });
 }
@@ -128,8 +128,8 @@ export async function deleteJobHandler(c: Context<AppBindings>) {
   const isActive = ACTIVE_STATUSES.includes(job.status);
 
   if (isActive && job.ghRunId && job.ghRunId !== "pending") {
-    const ghToken = c.var.config.ghToken ?? "";
-    const ghRepo = c.var.config.ghRepo ?? "";
+    const ghToken = queries.getSetting(c.var.db, "gh_token") || c.var.config.ghToken || "";
+    const ghRepo = queries.getSetting(c.var.db, "gh_repo") || c.var.config.ghRepo || "";
     if (ghToken && ghRepo) {
       try {
         await cancelGhRun(ghToken, ghRepo, job.ghRunId);

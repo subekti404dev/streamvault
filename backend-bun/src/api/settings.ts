@@ -54,10 +54,22 @@ export async function getSettings(c: Context<AppBindings>) {
 }
 
 export async function updateSettings(c: Context<AppBindings>) {
-  const { db } = c.var;
+  const { config, db } = c.var;
   const body = await c.req.json<Record<string, string>>();
   for (const [key, value] of Object.entries(body)) {
     queries.upsertSetting(db, key, value);
+    // Reload in-memory config (matches Rust settings.rs:70-96)
+    switch (key) {
+      case "gh_token": config.ghToken = value; break;
+      case "gh_repo": config.ghRepo = value; break;
+      case "discord_bot_token": config.discordBotToken = value; break;
+      case "discord_channel_id": config.discordChannelId = value; break;
+      case "discord_channel_ids": config.discordChannelIds = value; break;
+      case "telegram_bot_token": config.telegramBotToken = value; break;
+      case "telegram_channel_id": config.telegramChannelId = value; break;
+      case "torrentio_base_url": config.torrentioBaseUrl = value; break;
+      case "public_base_url": config.publicBaseUrl = value; break;
+    }
   }
   return c.json({ status: "saved" });
 }

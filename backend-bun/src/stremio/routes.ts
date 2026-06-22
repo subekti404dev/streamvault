@@ -7,12 +7,12 @@ export async function manifestHandler(c: Context<AppBindings>) {
     id: "com.streamvault.addon",
     version: "1.0.0",
     name: "StreamVault",
-    description: "Personal media streaming pipeline",
-    resources: ["stream", "catalog", "meta"],
+    description: "Personal media library powered by StreamVault",
+    resources: ["catalog", "meta", "stream"],
     types: ["movie", "series"],
     catalogs: [
-      { type: "movie", id: "streamvault-movies", name: "StreamVault Movies" },
-      { type: "series", id: "streamvault-series", name: "StreamVault Series" },
+      { type: "movie", id: "streamvault-movies", name: "Movies" },
+      { type: "series", id: "streamvault-series", name: "Series" },
     ],
     idPrefixes: ["tt"],
     behaviorHints: { configurable: false, configurationRequired: false },
@@ -42,14 +42,23 @@ export async function metaHandler(c: Context<AppBindings>) {
 
   const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
 
+  let resp: Response;
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) return c.json({ meta: {} });
-    const body = await resp.json() as Record<string, unknown>;
-    return c.json(body);
+    resp = await fetch(url);
   } catch {
-    return c.json({ meta: {} });
+    return c.json({ error: "upstream unreachable" }, 502);
   }
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    return c.body(body, resp.status as any);
+  }
+
+  const body = await resp.json() as Record<string, unknown>;
+  if (body.meta && typeof body.meta === "object") {
+    (body.meta as Record<string, unknown>).streamVault = { available: true };
+  }
+  return c.json(body);
 }
 
 export async function streamHandler(c: Context<AppBindings>) {

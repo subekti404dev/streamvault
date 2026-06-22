@@ -1,7 +1,7 @@
 import { loadConfig } from "./config";
 import { createDb } from "./db/index";
 import { createApp } from "./app";
-import { EventBus, SseClient, startKeepAlive } from "./api/events";
+import { EventBus, SseClient, trackSseClient, startKeepAlive } from "./api/events";
 import { setNotificationGlobals } from "./notifications/telegram";
 import { recoverStaleJobs } from "./worker/monitor";
 import { worker } from "./worker/scheduler";
@@ -41,6 +41,7 @@ api.post("/queue/:id/retry", retryJob);
 api.delete("/queue/:id", deleteJobHandler);
 api.get("/events", (c) => {
   const sseClient = new SseClient();
+  trackSseClient(sseClient);
   const stream = sseClient.start(eventBus);
   return new Response(stream, {
     headers: {

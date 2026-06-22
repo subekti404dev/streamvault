@@ -33,7 +33,7 @@ export class SseClient {
         this.unsubscribe = eventBus.subscribe((event) => {
           const lines = [
             `event: ${event.type}`,
-            `data: ${JSON.stringify(event.data)}`,
+            `data: ${JSON.stringify({ type: event.type, data: event.data })}`,
             "",
           ];
           try {
@@ -55,6 +55,10 @@ export class SseClient {
       } catch {}
     }
   }
+
+  isConnected(): boolean {
+    return this.controller !== null;
+  }
 }
 
 const clients = new Set<SseClient>();
@@ -67,6 +71,10 @@ export function startKeepAlive(): void {
   setInterval(() => {
     for (const client of clients) {
       client.sendKeepAlive();
+    }
+    // ponytail: O(n) scan prunes dead clients whose streams were cancelled
+    for (const client of clients) {
+      if (!client.isConnected()) clients.delete(client);
     }
   }, 15000);
 }
