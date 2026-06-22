@@ -8,4 +8,4 @@ export STREAMVAULT_DATABASE_URL="${STREAMVAULT_DATABASE_URL:-sqlite:/data/stream
 export STREAMVAULT_DASHBOARD_DIR="${STREAMVAULT_DASHBOARD_DIR:-/app/dashboard}"
 
 echo "Starting StreamVault (Bun)..."
-exec ./streamvault
+exec bun run src/index.ts

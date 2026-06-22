@@ -9,22 +9,22 @@ COPY dashboard/ ./
 RUN npm run build
 
 # =============================================================================
-# Stage 2: Build backend binary (Bun compile)
+# Stage 2: Install backend deps
 # =============================================================================
 FROM oven/bun:alpine AS backend
 WORKDIR /app
 COPY backend-bun/package.json backend-bun/bun.lock* ./
 RUN bun install --frozen-lockfile --production
 COPY backend-bun/ ./
-RUN bun build --compile src/index.ts --outfile streamvault
 
 # =============================================================================
 # Stage 3: Runtime
 # =============================================================================
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:alpine
 WORKDIR /app
-COPY --from=backend /app/streamvault .
+COPY --from=backend /app/node_modules ./node_modules
+COPY --from=backend /app/src ./src
+COPY --from=backend /app/package.json ./
 COPY --from=frontend /app/dashboard/dist ./dashboard
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
