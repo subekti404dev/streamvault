@@ -5,6 +5,8 @@ import * as queries from "../db/queries";
 import { triggerPipeline, cancelGhRun } from "../pipeline/trigger";
 import { sendNotification } from "../notifications/telegram";
 import { buildMagnet } from "./search";
+import { eq, sql } from "drizzle-orm";
+import { jobs } from "../db/schema";
 
 const ACTIVE_STATUSES = [
   "processing",
@@ -101,6 +103,16 @@ export async function retryJob(c: Context<AppBindings>) {
 
   if (job.status !== "failed") {
     throw badRequest("Can only retry failed jobs");
+  }
+  // Auto-construct magnetUri for old jobs created before validation fix
+  if (!job.magnetUri?.trim() && job.infohash) {
+    const dn = job.title || job.torrentName || job.imdbId;
+    job.magnetUri = buildMagnet(job.infohash, dn ?? "unknown");
+    // Update DB so future retries and page loads show the magnet URI
+    c.var.db.update(jobs)
+      .set({ magnetUri: job.magnetUri, updatedAt: sql`(datetime('now'))` })
+      .where(eq(jobs.id, id))
+      .run();
   }
 
   const skipDownload =
