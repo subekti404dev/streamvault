@@ -11,6 +11,7 @@
 
   let detail = $state<LibraryDetail | null>(null);
   let loading = $state(true);
+  let confirmDelete = $state<string | null>(null);
   let expandedSeasons = $state<Set<number>>(new Set([1]));
   let seriesVideos = $state<StremioVideo[]>([]);
   let metadataBaseUrl = $state('');
@@ -102,8 +103,13 @@
       addToast(`Requeue failed: ${e.message}`, 'error');
     }
   }
-
   async function deleteJob(jobId: string) {
+    if (confirmDelete !== jobId) {
+      confirmDelete = jobId;
+      setTimeout(() => { if (confirmDelete === jobId) confirmDelete = null; }, 5000);
+      return;
+    }
+    confirmDelete = null;
     try {
       await api.deleteJob(jobId);
       detail = await api.getLibraryItem(id);
@@ -149,8 +155,9 @@
         <a href="/proxy/hls/{detail!.jobs[0].id}/master.m3u8" target="_blank" class="btn btn-primary">
           ▶ Play
         </a>
-        <button class="btn" onclick={() => requeueJob(detail!.jobs[0].id)}>↻ Retranscode</button>
-        <button class="btn btn-danger" onclick={() => deleteJob(detail!.jobs[0].id)}>✗ Delete</button>
+        <button class="btn btn-danger" onclick={() => deleteJob(detail!.jobs[0].id)}>
+          {confirmDelete === detail!.jobs[0].id ? '⚠ Confirm Delete' : '✗ Delete'}
+        </button>
       </div>
     {/if}
 
@@ -190,8 +197,9 @@
                       {#if isEpisodeCompleted(season, video.episode ?? 0)}
                         {@const job = getEpisodeJob(season, video.episode ?? 0)}
                         <a href="/proxy/hls/{job?.id}/master.m3u8" target="_blank" class="btn btn-xs btn-primary">▶</a>
-                        <button class="btn btn-xs" onclick={() => requeueJob(job?.id ?? '')}>↻</button>
-                        <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>✗</button>
+                        <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>
+                          {confirmDelete === job?.id ? '⚠' : '✗'}
+                        </button>
                       {:else}
                         <button class="btn btn-xs" onclick={() => navigateToSearch(season, video.episode ?? 1)}>🔍 Search</button>
                       {/if}
