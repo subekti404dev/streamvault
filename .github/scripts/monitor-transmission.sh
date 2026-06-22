@@ -97,11 +97,15 @@ else
     fi
     echo "  File count from --info-files header: $FILE_COUNT"
 
-    # Single-file or no-file: skip selection (already downloading all)
-    if [ "$FILE_COUNT" -le 1 ]; then
-      echo "  Single-file or no-file torrent — downloading entire torrent"
+    # 1 confirmed file → single-file torrent, skip selection (download all)
+    if [ "$FILE_COUNT" -eq 1 ]; then
+      echo "  Single-file torrent — downloading entire torrent"
     else
-
+      # FILE_COUNT=0 means metadata not yet loaded from swarm — enter matching loop
+      # FILE_COUNT>1 means multi-file torrent — enter matching loop
+      if [ "$FILE_COUNT" -eq 0 ]; then
+        echo "  No file info yet from swarm (0 files reported) — entering file detection loop..."
+      fi
     # Wait for target file to appear in --info-files (up to 120s)
     for attempt in $(seq 1 24); do
       sleep 5
