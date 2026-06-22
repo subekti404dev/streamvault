@@ -95,6 +95,18 @@ else
       sleep 5
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
 
+      # Debug: print raw every 5th attempt
+      if [ $((attempt % 5)) -eq 0 ]; then
+        echo "  [debug] --info-files raw output (attempt $attempt):"
+        echo "$FILE_OUT" | head -10
+        echo "  [debug] ---"
+        # Also try --info for comparison
+        INFO_DEBUG=$(transmission-remote localhost:9092 -t "$TID" --info 2>/dev/null | grep -E 'Name:|Size:|File size:|Files:' | head -5)
+        echo "  [debug] --info metadata:"
+        echo "$INFO_DEBUG"
+        echo "  [debug] ---"
+      fi
+
       # Strategy 1: match by filename (if TORRENT_NAME provided)
       if [ -z "$TARGET" ] && [ -n "$TORRENT_NAME" ]; then
         BASE=$(basename "$TORRENT_NAME")
