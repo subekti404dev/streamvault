@@ -89,9 +89,8 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
       #   stderr: summary lines (skip)
       #   stdout: header "#  Done Priority..." then entries like "0  Partial ..."
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-      # Count real file entries (lines with number + status word like Partial/Done)
-      # NOTE: grep -c outputs count even on 0 matches (exit 1), don't use || echo 0
-      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]+' || true)
+      # Count real file entries — match "0  Partial" (tabular) or "0:  0%" (colon)
+      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]:]' || true)
       FILE_COUNT=${FILE_COUNT:-0}
 
       # File list may arrive AFTER name metadata — wait for it
@@ -100,7 +99,7 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
         for attempt in $(seq 1 12); do
           sleep 5
           FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]]+' || true)
+          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+[[:space:]:]' || true)
           FILE_COUNT=${FILE_COUNT:-0}
           if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
             echo "  File list received!"
