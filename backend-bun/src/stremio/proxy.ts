@@ -84,7 +84,8 @@ export async function chunkHandler(c: Context<AppBindings>) {
     }
   }
 
-  return c.newResponse("failed to fetch segment from Discord", { status: 502 });
+  console.log(`[proxy] all attempts failed for jobId=${jobId} filename=${filename}`);
+  return c.json({ error: "segment unavailable", details: "Discord CDN URL expired and could not be refreshed" }, 502);
 }
 
 async function tryFetchChunk(
@@ -98,7 +99,10 @@ async function tryFetchChunk(
     const resp = await fetch(url, { headers });
     const status = resp.status;
 
-    if (status !== 200 && status !== 206) return null;
+    if (status !== 200 && status !== 206) {
+      console.log(`[proxy] fetch returned ${status} for ${url.slice(0, 80)}...`);
+      return null;
+    }
 
     const contentLength = resp.headers.get("content-length");
     const contentRange = resp.headers.get("content-range");
@@ -118,7 +122,8 @@ async function tryFetchChunk(
     }
 
     return new Response(resp.body, { status, headers: outHeaders });
-  } catch {
+  } catch (e) {
+    console.log(`[proxy] fetch error for chunk:`, e);
     return null;
   }
 }
@@ -128,15 +133,24 @@ async function refreshDiscordUrl(
   jobId: string,
   msgId: string | null,
 ): Promise<string | null> {
-  if (!msgId) return null;
+  if (!msgId) {
+    console.log(`[proxy] no discordMessageId for chunk`);
+    return null;
+  }
 
   const botToken = queries.getSetting(c.var.db, "discord_bot_token") || c.var.config.discordBotToken;
-  if (!botToken) return null;
+  if (!botToken) {
+    console.log(`[proxy] no discord_bot_token configured`);
+    return null;
+  }
 
   // Get channel ID: job-specific first, then global setting
   const jobRow = queries.getJob(c.var.db, jobId);
   const channelId = jobRow?.discordChannelId || queries.getSetting(c.var.db, "discord_channel_id") || c.var.config.discordChannelId;
-  if (!channelId) return null;
+  if (!channelId) {
+    console.log(`[proxy] no discord_channel_id configured`);
+    return null;
+  }
 
   try {
     const resp = await fetch(
@@ -150,7 +164,8 @@ async function refreshDiscordUrl(
     const url = attachments?.[0]?.url;
     if (typeof url !== "string") return null;
     return url;
-  } catch {
+  } catch (e) {
+    console.log(`[proxy] fetch error for chunk:`, e);
     return null;
   }
 }

@@ -50,7 +50,7 @@
   $effect(() => {
     if (id) loadJob();
     const unsub = onSseEvent((event) => {
-      if (event.job_id === id && ['job_progress', 'job_completed', 'job_failed', 'job_retried'].includes(event.type as string)) {
+      if (event.job_id === id && ['job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_checkpoint', 'job_started'].includes(event.type as string)) {
         loadJob();
       }
     });
