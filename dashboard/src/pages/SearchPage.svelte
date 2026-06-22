@@ -261,7 +261,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         poster_url: result?.meta.poster || selectedItem?.poster || null,
         magnet_uri: customMagnet.trim(),
         infohash: parsed.infohash,
-        torrent_name: title,
+        torrent_name: "",
         file_idx: selectedFileIdx,
         file_size_bytes: inspectedFiles[selectedFileIdx]?.size_bytes || 0,
       });

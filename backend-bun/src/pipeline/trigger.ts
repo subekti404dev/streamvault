@@ -122,7 +122,7 @@ async function triggerPipeline(
       job_id: job.id,
       magnet_uri: job.magnetUri ?? "",
       file_idx: String(job.fileIdx ?? 0),
-      torrent_name: job.torrentName ?? "",
+      torrent_name: "",  // ponytail: not used, file_idx only
       callback_url: baseUrl,
       callback_token: callbackToken,
       discord_bot_token: discordToken,

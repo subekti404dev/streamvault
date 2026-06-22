@@ -114,8 +114,7 @@ jobs:
             "${{ inputs.callback_url }}" \
             "${{ inputs.callback_token }}" \
             "${{ inputs.magnet_uri }}" \
-            "${{ inputs.file_idx }}" \
-            "${{ inputs.torrent_name }}"
+            "${{ inputs.file_idx }}"
 
       - name: Save download checkpoint
         if: inputs.skip_download != 'true'
@@ -139,37 +138,10 @@ jobs:
         id: detect
         shell: bash
         run: |
-          FILENAME="${{ inputs.torrent_name }}"
-          INPUT_FILE=""
-
-          if [ -n "$FILENAME" ]; then
-            INPUT_FILE=$(find ./downloads -type f -name "$FILENAME" \
-              -not -name "*.log" -not -name "*.torrent" \
-              | head -1)
-
-            if [ -n "$INPUT_FILE" ]; then
-              echo "✓ Found exact file: $INPUT_FILE"
-            else
-              BASE_NAME=$(basename "$FILENAME" | sed 's/\.[^.]*$//')
-              INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
-                -not -name "*.log" -not -name "*.torrent" \
-                -exec ls -1S {} + 2>/dev/null | head -1)
-              if [ -n "$INPUT_FILE" ]; then
-                echo "✓ Found file by partial match: $INPUT_FILE"
-              fi
-            fi
-          fi
-
-          if [ -z "$INPUT_FILE" ]; then
-            # Pick largest video file — most likely the intended download
-            INPUT_FILE=$(find ./downloads -type f \
-              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
-              -not -name "*.log" -not -name "*.torrent" \
-              -exec ls -1S {} + 2>/dev/null | head -1)
-            if [ -n "$INPUT_FILE" ]; then
-              echo "⚠ Fallback: found video by extension (largest): $INPUT_FILE"
-            fi
-          fi
+          INPUT_FILE=$(find ./downloads -type f \
+            \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
+            -not -name "*.log" -not -name "*.torrent" \
+            -exec ls -1S {} + 2>/dev/null | head -1)
 
           if [ -z "$INPUT_FILE" ]; then
             echo "❌ Error: No video file found in ./downloads"

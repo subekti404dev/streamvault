@@ -84,12 +84,12 @@ fetch_info_files() {
 }
 
 run_scenario() {
-  local LABEL="$1" MAGNET="$2" FILE_IDX="$3" TORRENT_NAME="$4"
+  local LABEL="$1" MAGNET="$2" FILE_IDX="$3"
   total=$((total+1))
   echo ""
   echo "============================================"
   echo "  Scenario $total: $LABEL"
-  echo "  idx=${FILE_IDX:-none} name=${TORRENT_NAME:-none}"
+  echo "  idx=${FILE_IDX:-none}"
   echo "============================================"
 
   daemon_stop; sleep 1
@@ -113,18 +113,23 @@ run_scenario() {
   # Single file
   if [ "$RC" -eq 1 ]; then echo "  Single-file → skip"; daemon_stop; pass_scenario; return; fi
 
-  # No criteria → skip
-  if [ -z "$TORRENT_NAME" ] && [ -z "$FILE_IDX" ]; then
-    echo "  No criteria → skip (download all)"
+  # No FILE_IDX → skip
+  if [ -z "$FILE_IDX" ]; then
+    echo "  No file_idx → skip (download all)"
     daemon_stop; pass_scenario; return
   fi
 
-  # Loop matching
+  # Validate FILE_IDX is numeric
+  if ! [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
+    echo "  Invalid file_idx → skip (download all)"
+    daemon_stop; pass_scenario; return
+  fi
+
+  # Loop matching — index only
   MATCHED=false
   for a in $(seq 1 24); do
     sleep 5
     FOUT=$(fetch_info_files)
-    [ $((a % 5)) -eq 0 ] && echo "  [raw $a] $(echo "$FOUT"|head -3)"
 
     # Single-file recheck
     NC=$(echo "$FOUT" | grep -oP '\(\K[0-9]+(?=\s*files?\))' | head -1)
@@ -134,24 +139,12 @@ run_scenario() {
     fi
     [ "$NL" -eq 0 ] && continue
 
-    # Filename exact
+    # Match by file index (try both 0-based and 1-based)
     TARGET=""; HOW=""
-    if [ -n "$TORRENT_NAME" ]; then
-      BASE=$(basename "$TORRENT_NAME")
-      ML=$(echo "$FOUT" | grep -F "$BASE" | head -1)
-      [ -n "$ML" ] && { TARGET=$(echo "$ML" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' '); HOW="exact filename"; }
-    fi
-    if [ -z "$TARGET" ] && [ -n "$TORRENT_NAME" ]; then
-      BNX=$(basename "$TORRENT_NAME" | sed 's/\.[^.]*$//')
-      ML=$(echo "$FOUT" | grep -F "$BNX" | head -1)
-      [ -n "$ML" ] && { TARGET=$(echo "$ML" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' '); HOW="partial filename"; }
-    fi
-    if [ -z "$TARGET" ] && [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
-      for IDX in "$FILE_IDX" "$((FILE_IDX + 1))"; do
-        ML=$(echo "$FOUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
-        [ -n "$ML" ] && { TARGET="$IDX"; HOW="index $IDX"; break; }
-      done
-    fi
+    for IDX in "$FILE_IDX" "$((FILE_IDX + 1))"; do
+      ML=$(echo "$FOUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
+      [ -n "$ML" ] && { TARGET="$IDX"; HOW="index $IDX"; break; }
+    done
 
     if [ -n "$TARGET" ]; then
       echo "  ✓ $HOW → file $TARGET"
@@ -176,13 +169,13 @@ run_scenario() {
   if $MATCHED; then daemon_stop; pass_scenario; else daemon_stop; fail_scenario; fi
 }
 
-run_scenario "BBB + name"    "$ci" "" "Big Buck Bunny 1080p 30fps.mp4"
-run_scenario "BBB no name"   "$ci" "" ""
-run_scenario "Kai + name 73" "$si" "73" "Naruto the Movie 7 - The Last (2014) [BD_1080p Hi10P 5.1 AAC].mkv"
-run_scenario "Kai + idx 73"  "$si" "73" ""
+run_scenario "BBB no idx"     "$ci" ""
+run_scenario "BBB + idx 0"    "$ci" "0"
+run_scenario "Kai + idx 73"   "$si" "73"
+run_scenario "Kai no idx"     "$si" ""
 
 echo ""
 echo "============================================"
 echo "  $pass/$total passed, $fail failed"
 echo "============================================"
-[ "$fail" -gt 0 ] && exit 1
+if [ "$fail" -gt 0 ]; then exit 1; fi

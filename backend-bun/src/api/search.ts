@@ -233,7 +233,7 @@ interface TorrentioStream {
   title?: string;
   size?: number;
   fileIdx?: number;
-  behaviorHints?: { filename?: string };
+  behaviorHints?: { filename?: string; fileIdx?: number };
 }
 
 async function searchTorrentio(
@@ -255,7 +255,9 @@ async function searchTorrentio(
     const title = stream.title ?? stream.infoHash;
     const filename = stream.behaviorHints?.filename ?? "";
     const sizeBytes = typeof stream.size === "number" ? stream.size : 0;
-    const fileIdx = typeof stream.fileIdx === "number" ? stream.fileIdx : 0;
+    const fileIdx = 
+      typeof stream.behaviorHints?.fileIdx === "number" ? stream.behaviorHints.fileIdx :
+      typeof stream.fileIdx === "number" ? stream.fileIdx : 0;
 
     torrents.push({
       name,

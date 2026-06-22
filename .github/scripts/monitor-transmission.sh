@@ -1,12 +1,12 @@
 #!/bin/bash
 # monitor-transmission.sh — Run transmission-daemon with progress callbacks
-# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri> [file_idx] [torrent_name]
+# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri> [file_idx]
 JOB_ID="${1:?Missing job_id}"
 CALLBACK_URL="${2:?Missing callback_url}"
 CALLBACK_TOKEN="${3:?Missing callback_token}"
 MAGNET_URI="${4:?Missing magnet_uri}"
 FILE_IDX="${5:-}"
-TORRENT_NAME="${6:-}"
+# ponytail: torrent_name removed, file_idx only
 callback() {
   local endpoint="$1"
   local payload="$2"
@@ -97,30 +97,26 @@ else
     fi
     echo "  File count from --info-files header: $FILE_COUNT"
 
-    # 1 confirmed file → single-file torrent, skip selection (download all)
-    if [ "$FILE_COUNT" -eq 1 ]; then
+    # ≤1 confirmed file → single-file torrent, skip selection (download all)
+    if [ "$FILE_COUNT" -le 1 ]; then
       echo "  Single-file torrent — downloading entire torrent"
     else
-      # FILE_COUNT=0 means metadata not yet loaded from swarm — enter matching loop
+      # FILE_COUNT=0 means metadata not yet loaded — enter matching loop
       # FILE_COUNT>1 means multi-file torrent — enter matching loop
       if [ "$FILE_COUNT" -eq 0 ]; then
         echo "  No file info yet from swarm (0 files reported) — entering file detection loop..."
       fi
+
       # No search criteria — download all
-      if [ -z "$TORRENT_NAME" ] && [ -z "$FILE_IDX" ]; then
-        echo "  No torrent_name or file_idx provided — downloading entire torrent"
+      if [ -z "$FILE_IDX" ]; then
+        echo "  No file_idx provided — downloading entire torrent"
+      elif ! [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
+        echo "  Invalid file_idx ($FILE_IDX) — must be numeric, downloading entire torrent"
       else
         TARGET=""
         for attempt in $(seq 1 24); do
           sleep 5
           FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-
-          # Debug: print raw every 5th attempt
-          if [ $((attempt % 5)) -eq 0 ]; then
-            echo "  [debug] --info-files raw output (attempt $attempt):"
-            echo "$FILE_OUT" | head -10
-            echo "  [debug] ---"
-          fi
 
           # Re-check: if file list was 0 but now has actual file lines, detect count
           NEW_FILE_LINES=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+')
@@ -135,40 +131,18 @@ else
             continue
           fi
 
-          # Strategy 1: match by filename (if TORRENT_NAME provided)
-          if [ -z "$TARGET" ] && [ -n "$TORRENT_NAME" ]; then
-            BASE=$(basename "$TORRENT_NAME")
-            MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE" | head -1)
+          # Match by file index (try both 0-based and 1-based)
+          for IDX in "$FILE_IDX" "$((FILE_IDX + 1))"; do
+            MATCH_LINE=$(echo "$FILE_OUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
             if [ -n "$MATCH_LINE" ]; then
-              TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
-              echo "  ✓ Matched by filename: file $TARGET"
+              TARGET="$IDX"
+              echo "  ✓ Matched by index: file $TARGET (FE idx=$FILE_IDX)"
               echo "    $MATCH_LINE"
-              break
+              break 2
             fi
-            # Try partial match without extension
-            BASE_NX=$(basename "$TORRENT_NAME" | sed 's/\.[^.]*$//')
-            MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE_NX" | head -1)
-            if [ -n "$MATCH_LINE" ]; then
-              TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
-              echo "  ✓ Matched by partial name: file $TARGET"
-              echo "    $MATCH_LINE"
-            fi
-          fi
+          done
 
-          # Strategy 2: match by file index (try both 0-based and 1-based)
-          if [ -z "$TARGET" ] && [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
-            for IDX in "$FILE_IDX" "$((FILE_IDX + 1))"; do
-              MATCH_LINE=$(echo "$FILE_OUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
-              if [ -n "$MATCH_LINE" ]; then
-                TARGET="$IDX"
-                echo "  ✓ Matched by index: file $TARGET (FE idx=$FILE_IDX)"
-                echo "    $MATCH_LINE"
-                break 2
-              fi
-            done
-          fi
-
-          # Check if file list appeared with any entries
+          # File list appeared but no match yet
           if echo "$FILE_OUT" | grep -qE '^[[:space:]]*[0-9]+'; then
             echo "  File list appeared ($(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+') files, no match yet — continuing download until match or timeout)"
           fi
@@ -178,7 +152,6 @@ else
           echo "  Target file found at index $TARGET, selecting..."
           echo "  Detected file list:"
           echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -10
-          # Pause torrent briefly, select only target file, resume
           transmission-remote localhost:9092 -t "$TID" --stop > /dev/null 2>&1 || true
           sleep 1
           transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
@@ -188,8 +161,8 @@ else
         else
           echo "  WARNING: Could not identify target file — downloading all files"
         fi
-      fi  # end check for TORRENT_NAME/FILE_IDX
-    fi  # end multi-file selection
+      fi  # end check for FILE_IDX
+    fi  # end single-file check
   fi  # end else META_READY
 fi
 
