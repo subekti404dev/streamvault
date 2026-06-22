@@ -62,7 +62,6 @@ export async function metaHandler(c: Context<AppBindings>) {
 }
 
 export async function streamHandler(c: Context<AppBindings>) {
-  console.log("[stream] id_RAW=%s type=%s", c.req.param("id"), c.req.param("type"));
   const id = (c.req.param("id") || "").replace(/\.json$/, "");
   const parts = id.split(":");
   const imdbId = parts[0];
@@ -70,23 +69,33 @@ export async function streamHandler(c: Context<AppBindings>) {
   const episode = parts.length >= 3 ? parseInt(parts[2], 10) : null;
 
   // Find matching completed job
+  const allCompleted = queries.listJobsByStatus(c.var.db, "completed");
   let matched: queries.Job | undefined;
 
   if (season !== null && episode !== null) {
-    matched = queries.listJobsByStatus(c.var.db, "completed").find(
+    matched = allCompleted.find(
       (j) => j.imdbId === imdbId && j.season === season && j.episode === episode
     );
   } else if (season !== null) {
-    matched = queries.listJobsByStatus(c.var.db, "completed").find(
+    matched = allCompleted.find(
       (j) => j.imdbId === imdbId && j.season === season
     );
   } else {
-    matched = queries.listJobsByStatus(c.var.db, "completed").find(
+    matched = allCompleted.find(
       (j) => j.imdbId === imdbId && j.season == null
     );
   }
 
-  if (!matched) return c.json({ streams: [] });
+  if (!matched) {
+    // Debug: show why
+    const candidates = allCompleted.filter(j => j.imdbId === imdbId);
+    console.log("[stream] NOT FOUND imdbId=%s season=%s episode=%s allCompleted=%d candidates=%d",
+      imdbId, season, episode, allCompleted.length, candidates.length);
+    if (candidates.length > 0) {
+      console.log("[stream] candidate seasons:", candidates.map(j => JSON.stringify({season: j.season, episode: j.episode})));
+    }
+    return c.json({ streams: [], _debug: { imdbId, season, episode, totalCompleted: allCompleted.length, candidates: candidates.length } });
+  }
 
   const baseUrl = c.var.config.publicBaseUrl;
   const resolution = matched.videoResolution || "HD";
