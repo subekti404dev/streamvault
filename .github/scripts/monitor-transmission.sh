@@ -101,7 +101,7 @@ else
         MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE" | head -1)
         if [ -n "$MATCH_LINE" ]; then
           TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
-          echo "  ✓ Matched by filename: file $TARGET"
+          echo "  ✓ Matched by filename: file $TARGET → $(echo "$MATCH_LINE" | awk '{print $(NF-1), $NF}')"
           break
         fi
         # Try partial match without extension
@@ -109,7 +109,7 @@ else
         MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE_NX" | head -1)
         if [ -n "$MATCH_LINE" ]; then
           TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
-          echo "  ✓ Matched by partial name: file $TARGET"
+          echo "  ✓ Matched by partial name: file $TARGET → $(echo "$MATCH_LINE" | awk '{print $(NF-1), $NF}')"
           break
         fi
       fi
@@ -120,7 +120,7 @@ else
           MATCH_LINE=$(echo "$FILE_OUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
           if [ -n "$MATCH_LINE" ]; then
             TARGET="$IDX"
-            echo "  ✓ Matched by index: file $TARGET (FE sent idx=$FILE_IDX)"
+            echo "  ✓ Matched by index: file $TARGET → $(echo "$MATCH_LINE" | awk '{print $(NF-1), $NF}') (FE idx=$FILE_IDX)"
             break 2
           fi
         done
@@ -201,3 +201,8 @@ done
 
 callback "progress" '{"phase":"download","progress_pct":100}'
 echo "Download complete"
+
+# Verify downloaded files
+echo "=== Downloaded files ==="
+ls -lahR ./downloads/ | head -60
+echo "=== End download listing ==="
