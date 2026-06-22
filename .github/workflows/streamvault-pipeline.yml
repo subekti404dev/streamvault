@@ -292,6 +292,9 @@ jobs:
           TOTAL_CHUNKS=$(ls "${HLS_DIR}"/seg_*.ts 2>/dev/null | wc -l)
           echo "Transcode complete: $TOTAL_CHUNKS chunks"
 
+          .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
+            '{"phase":"transcode","progress_pct":100}'
+
           .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
             '{"checkpoint":"transcode","artifact_id":"checkpoint-tc-${{ inputs.job_id }}"}'
 
