@@ -148,11 +148,10 @@ jobs:
 
             if [ -n "$INPUT_FILE" ]; then
               echo "✓ Found exact file: $INPUT_FILE"
-            else
               BASE_NAME=$(basename "$FILENAME" | sed 's/\.[^.]*$//')
               INPUT_FILE=$(find ./downloads -type f -name "*${BASE_NAME}*" \
                 -not -name "*.log" -not -name "*.torrent" \
-                | head -1)
+                -exec ls -1S {} + 2>/dev/null | head -1)
               if [ -n "$INPUT_FILE" ]; then
                 echo "✓ Found file by partial match: $INPUT_FILE"
               fi
@@ -160,15 +159,14 @@ jobs:
           fi
 
           if [ -z "$INPUT_FILE" ]; then
+            # Pick largest video file — most likely the intended download
             INPUT_FILE=$(find ./downloads -type f \
               \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
               -not -name "*.log" -not -name "*.torrent" \
-              | head -1)
+              -exec ls -1S {} + 2>/dev/null | head -1)
             if [ -n "$INPUT_FILE" ]; then
-              echo "⚠ Fallback: found video by extension: $INPUT_FILE"
+              echo "⚠ Fallback: found video by extension (largest): $INPUT_FILE"
             fi
-          fi
-
           if [ -z "$INPUT_FILE" ]; then
             echo "❌ Error: No video file found in ./downloads"
             ls -la ./downloads/
