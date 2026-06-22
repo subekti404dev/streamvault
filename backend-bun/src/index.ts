@@ -78,7 +78,7 @@ app.get("/catalog/:type/:catalogId.json", catalogHandler);
 app.get("/meta/:type/:imdbId.json", metaHandler);
 app.get("/stream/:type/:id.json", streamHandler);
 app.get("/proxy/hls/:jobId/master.m3u8", playlistHandler);
-app.get("/proxy/hls/:jobId/*", chunkHandler);
+app.get("/proxy/hls/:jobId/:filename", chunkHandler);
 
 // Static file serving — Svelte dashboard (SPA fallback)
 // serveStatic returns 404 on missing files and does NOT call next(),

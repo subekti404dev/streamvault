@@ -66,7 +66,7 @@ export async function playlistHandler(c: Context<AppBindings>) {
 
 export async function chunkHandler(c: Context<AppBindings>) {
   const jobId = c.req.param("jobId")!;
-  const filename = c.req.param("*")! || c.req.param("filename")!;
+  const filename = c.req.param("filename")!;
 
   const rows = c.var.db
     .select({ discordUrl: hlsChunks.discordUrl, discordMessageId: hlsChunks.discordMessageId })
