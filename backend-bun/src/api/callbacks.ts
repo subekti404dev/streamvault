@@ -65,36 +65,44 @@ export async function completeCallback(c: Context<AppBindings>): Promise<Respons
   const resolution = body.video_resolution || "1080p";
   const duration = body.duration_seconds ?? 0;
 
-  // Get job before update to capture gh_run_id
-  const job = queries.getJob(c.var.db, id);
-  const ghRunId = job.ghRunId;
+  console.log(`[callback] complete job=${id} resolution=${resolution} duration=${duration}`);
 
-  queries.updateJobCompleted(c.var.db, id, resolution, duration);
+  try {
+    // Get job before update to capture gh_run_id
+    const job = queries.getJob(c.var.db, id);
+    const ghRunId = job.ghRunId;
 
-  // Log event
-  queries.insertJobEvent(c.var.db, id, null, "status_change", `Completed: ${resolution}, ${duration}s duration`, null);
+    queries.updateJobCompleted(c.var.db, id, resolution, duration);
+    console.log(`[callback] job ${id} marked completed`);
 
-  // Broadcast
-  c.var.eventBus.send({ type: "job_completed", data: { job_id: id } });
+    // Log event
+    queries.insertJobEvent(c.var.db, id, null, "status_change", `Completed: ${resolution}, ${duration}s duration`, null);
 
-  // Telegram notification
-  const title = job?.title ?? "Unknown";
-  sendNotification(c, { type: "JobCompleted", title, details: `${resolution}, ${duration}s duration` });
+    // Broadcast
+    c.var.eventBus.send({ type: "job_completed", data: { job_id: id } });
 
-  // Clean up GHA run
-  if (ghRunId) {
-    const ghToken = queries.getSetting(c.var.db, "gh_token");
-    const ghRepo = queries.getSetting(c.var.db, "gh_repo");
-    if (ghToken && ghRepo) {
-      const url = `https://api.github.com/repos/${ghRepo}/actions/runs/${ghRunId}`;
-      fetch(url, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${ghToken}`,
-          Accept: "application/vnd.github+json",
-        },
-      }).catch(() => {});
+    // Telegram notification
+    const title = job?.title ?? "Unknown";
+    sendNotification(c, { type: "JobCompleted", title, details: `${resolution}, ${duration}s duration` });
+
+    // Clean up GHA run
+    if (ghRunId) {
+      const ghToken = queries.getSetting(c.var.db, "gh_token");
+      const ghRepo = queries.getSetting(c.var.db, "gh_repo");
+      if (ghToken && ghRepo) {
+        const url = `https://api.github.com/repos/${ghRepo}/actions/runs/${ghRunId}`;
+        fetch(url, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${ghToken}`,
+            Accept: "application/vnd.github+json",
+          },
+        }).catch((e) => console.error(`[callback] GHA cleanup failed job=${id}:`, e));
+      }
     }
+  } catch (e: any) {
+    console.error(`[callback] complete failed job=${id}:`, e);
+    return c.json({ error: e.message || "Internal error" }, 500);
   }
 
   return c.json({ ok: true });

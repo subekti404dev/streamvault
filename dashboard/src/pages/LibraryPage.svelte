@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api';
+  import { onSseEvent } from '../lib/events';
   import type { LibraryGroup } from '../lib/types';
 
   let { addToast }: {
@@ -39,6 +40,12 @@
 
   $effect(() => {
     loadLibrary();
+    const unsub = onSseEvent((event) => {
+      if (['job_completed', 'job_retried', 'job_removed'].includes(event.type as string)) {
+        loadLibrary();
+      }
+    });
+    return () => unsub();
   });
 </script>
 
