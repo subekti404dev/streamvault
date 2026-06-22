@@ -56,20 +56,38 @@ export async function getSettings(c: Context<AppBindings>) {
 export async function updateSettings(c: Context<AppBindings>) {
   const { config, db } = c.var;
   const body = await c.req.json<Record<string, string>>();
+
+  // Fetch existing DB values for sensitive keys that might be masked
+  const existingRows = queries.getAllSettings(db);
+  const existingMap: Record<string, string> = {};
+  for (const row of existingRows) {
+    existingMap[row.key] = row.value ?? "";
+  }
+
   for (const [key, value] of Object.entries(body)) {
-    queries.upsertSetting(db, key, value);
-    // Reload in-memory config (matches Rust settings.rs:70-96)
+    // ponytail: detect masked values — frontend receives masked token from
+    // getSettings, user saves without editing → masked value overwrites real token.
+    // If value matches mask of stored value, keep stored value.
+    let finalValue = value;
+    if (SENSITIVE_KEYS[key]) {
+      const stored = existingMap[key] || configValue(config, key) || "";
+      if (stored && maskToken(stored) === value) {
+        finalValue = stored;
+      }
+    }
+    queries.upsertSetting(db, key, finalValue);
+    // Reload in-memory config
     switch (key) {
-      case "gh_token": config.ghToken = value; break;
-      case "gh_repo": config.ghRepo = value; break;
-      case "discord_bot_token": config.discordBotToken = value; break;
-      case "discord_channel_id": config.discordChannelId = value; break;
-      case "discord_channel_ids": config.discordChannelIds = value; break;
-      case "telegram_bot_token": config.telegramBotToken = value; break;
-      case "telegram_channel_id": config.telegramChannelId = value; break;
-      case "torrentio_base_url": config.torrentioBaseUrl = value; break;
-      case "public_base_url": config.publicBaseUrl = value; break;
-      case "auth_secret": config.authSecret = value; break;
+      case "gh_token": config.ghToken = finalValue; break;
+      case "gh_repo": config.ghRepo = finalValue; break;
+      case "discord_bot_token": config.discordBotToken = finalValue; break;
+      case "discord_channel_id": config.discordChannelId = finalValue; break;
+      case "discord_channel_ids": config.discordChannelIds = finalValue; break;
+      case "telegram_bot_token": config.telegramBotToken = finalValue; break;
+      case "telegram_channel_id": config.telegramChannelId = finalValue; break;
+      case "torrentio_base_url": config.torrentioBaseUrl = finalValue; break;
+      case "public_base_url": config.publicBaseUrl = finalValue; break;
+      case "auth_secret": config.authSecret = finalValue; break;
     }
   }
   return c.json({ status: "saved" });
