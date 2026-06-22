@@ -1,10 +1,12 @@
 #!/bin/bash
 # monitor-transmission.sh — Run transmission-daemon with progress callbacks
-# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri> [file_idx]
+# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri> [file_idx] [torrent_name]
+JOB_ID="${1:?Missing job_id}"
 CALLBACK_URL="${2:?Missing callback_url}"
 CALLBACK_TOKEN="${3:?Missing callback_token}"
 MAGNET_URI="${4:?Missing magnet_uri}"
 FILE_IDX="${5:-}"
+TORRENT_NAME="${6:-}"
 callback() {
   local endpoint="$1"
   local payload="$2"
@@ -50,7 +52,6 @@ done
 # Cleanup on exit
 cleanup() {
   transmission-remote localhost:9092 --exit > /dev/null 2>&1 || true
-  # Wait for daemon to actually stop before removing config
   if [ -n "$DAEMON_PID" ]; then
     wait "$DAEMON_PID" 2>/dev/null || true
     kill "$DAEMON_PID" 2>/dev/null || true
@@ -59,79 +60,90 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Add torrent
+# Add torrent — start downloading immediately so file list populates
 echo "Adding torrent: $MAGNET_URI"
 transmission-remote localhost:9092 --add "$MAGNET_URI"
 
-# If file_idx is specified, select only that file (0-based → 1-based)
-if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
-  TID=$(transmission-remote localhost:9092 --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+' | awk '{print $1}' | head -1)
-  if [ -z "$TID" ]; then
-    echo "  WARNING: Could not find torrent ID, downloading all files"
+# Get torrent ID
+TID=$(transmission-remote localhost:9092 --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+' | awk '{print $1}' | head -1)
+if [ -z "$TID" ]; then
+  echo "WARNING: Could not find torrent ID"
+else
+  echo "Torrent ID: $TID"
+
+  # Wait for metadata name to load (magnet links need DHT/PEX)
+  META_READY=false
+  for attempt in $(seq 1 12); do
+    sleep 5
+    INFO_OUT=$(transmission-remote localhost:9092 -t "$TID" --info 2>&1 || true)
+    if echo "$INFO_OUT" | grep -q "Name:"; then
+      META_READY=true
+      break
+    fi
+    echo "  Waiting for metadata (attempt $attempt/12)..."
+  done
+
+  if ! $META_READY; then
+    echo "  WARNING: Metadata not loaded after 60s — downloading all files"
   else
-    echo "Selecting only file index $FILE_IDX from torrent $TID..."
-    # Wait for metadata to load (magnet links need DHT/PEX — up to 30s)
-    META_READY=false
-    for attempt in $(seq 1 12); do
+    echo "  Metadata loaded, waiting for file list to populate..."
+    TARGET=""
+
+    # Wait for target file to appear in --info-files (up to 120s)
+    # Once torrent starts downloading, file entries populate with progress
+    for attempt in $(seq 1 24); do
       sleep 5
-      INFO_OUT=$(transmission-remote localhost:9092 -t "$TID" --info 2>&1 || true)
-      if echo "$INFO_OUT" | grep -q "Name:"; then
-        META_READY=true
-        break
-      fi
-      echo "  Waiting for metadata (attempt $attempt/12)..."
-    done
-
-    if ! $META_READY; then
-      echo "  WARNING: Metadata not loaded after 60s, downloading all files"
-    else
-      # transmission-remote --info-files outputs:
-      #   stderr: summary lines (skip)
-      #   stdout: header "#  Done Priority..." then entries like "0  Partial ..."
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-      # Count file entries — match any line starting with whitespace + digits
-      # Handles all transmission formats: tabular "0  Partial", colon "0:  0%", standard "1   0.0%"
-      FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+' || true)
-      FILE_COUNT=${FILE_COUNT:-0}
 
-      # File list may arrive AFTER name metadata — wait for it
-      if [ "$FILE_COUNT" -eq 0 ] 2>/dev/null; then
-        echo "  Metadata name loaded but no files yet — waiting for file list..."
-        for attempt in $(seq 1 12); do
-          sleep 5
-          FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-          FILE_COUNT=$(echo "$FILE_OUT" | grep -cE '^[[:space:]]*[0-9]+' || true)
-          FILE_COUNT=${FILE_COUNT:-0}
-          if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
-            echo "  File list received!"
-            break
+      # Strategy 1: match by filename (if TORRENT_NAME provided)
+      if [ -z "$TARGET" ] && [ -n "$TORRENT_NAME" ]; then
+        BASE=$(basename "$TORRENT_NAME")
+        MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE" | head -1)
+        if [ -n "$MATCH_LINE" ]; then
+          TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
+          echo "  ✓ Matched by filename: file $TARGET"
+          break
+        fi
+        # Try partial match without extension
+        BASE_NX=$(basename "$TORRENT_NAME" | sed 's/\.[^.]*$//')
+        MATCH_LINE=$(echo "$FILE_OUT" | grep -F "$BASE_NX" | head -1)
+        if [ -n "$MATCH_LINE" ]; then
+          TARGET=$(echo "$MATCH_LINE" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
+          echo "  ✓ Matched by partial name: file $TARGET"
+          break
+        fi
+      fi
+
+      # Strategy 2: match by file index (try both 0-based and 1-based)
+      if [ -z "$TARGET" ] && [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
+        for IDX in "$FILE_IDX" "$((FILE_IDX + 1))"; do
+          MATCH_LINE=$(echo "$FILE_OUT" | grep -E "^[[:space:]]*${IDX}[[:space:]:]" | head -1)
+          if [ -n "$MATCH_LINE" ]; then
+            TARGET="$IDX"
+            echo "  ✓ Matched by index: file $TARGET (FE sent idx=$FILE_IDX)"
+            break 2
           fi
-          echo "  Still waiting (attempt $attempt/12)..."
         done
       fi
 
-      echo "  Detected $FILE_COUNT files:"
-      echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -20
+      echo "  Still waiting... (attempt $attempt/24)"
+    done
 
-      if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
-        # Detect indexing: colon format (0:, 1:) = 0-based; tabular (1  , 2  ) = 1-based
-        FIRST_ENTRY=$(echo "$FILE_OUT" | grep -m1 '^[[:space:]]*[0-9]')
-        FIRST_NUM=$(echo "$FIRST_ENTRY" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
-        if [ "$FIRST_NUM" = "0" ]; then
-          TARGET=$FILE_IDX                 # 0-based format — use directly
-        else
-          TARGET=$((FILE_IDX + 1))         # 1-based format — convert
-        fi
-        transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
-        transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
-        echo "  Deselected all, selected only file $TARGET of $FILE_COUNT (idx $FILE_IDX)"
-        transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
-      else
-        echo "  WARNING: Could not parse file list, downloading all files"
-      fi
+    if [ -n "$TARGET" ]; then
+      echo "  Detected file list:"
+      echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -10
+      # Pause torrent briefly, select only target file, resume
+      transmission-remote localhost:9092 -t "$TID" --stop > /dev/null 2>&1 || true
+      sleep 1
+      transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
+      transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
+      echo "  Deselected all, selected only file $TARGET"
+      transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
+    else
+      echo "  WARNING: Could not identify target file — downloading all files"
+    fi
   fi
 fi
-  fi
 
 LAST_PCT=-1
 DONE=false
