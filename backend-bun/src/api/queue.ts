@@ -1,3 +1,4 @@
+import { toSnake } from "../db/transform";
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { badRequest } from "../error";
@@ -84,8 +85,7 @@ export async function listJobs(c: Context<AppBindings>) {
       queued.push(job);
     }
   }
-
-  return c.json({ processing, queued, completed, failed });
+  return c.json({ processing: toSnake(processing), queued: toSnake(queued), completed: toSnake(completed), failed: toSnake(failed) });
 }
 
 export async function getJob(c: Context<AppBindings>) {
@@ -94,7 +94,7 @@ export async function getJob(c: Context<AppBindings>) {
   const events = queries.getJobEvents(c.var.db, id);
   const ghRepo = queries.getSetting(c.var.db, "gh_repo") || c.var.config.ghRepo || null;
 
-  return c.json({ job, events, gh_repo: ghRepo });
+  return c.json({ job: toSnake(job), events: toSnake(events), gh_repo: ghRepo });
 }
 
 export async function retryJob(c: Context<AppBindings>) {

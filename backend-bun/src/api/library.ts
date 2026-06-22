@@ -1,3 +1,4 @@
+import { toSnake } from "../db/transform";
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { notFound } from "../error";
@@ -10,7 +11,7 @@ export async function listLibrary(c: Context<AppBindings>) {
   const mediaType = c.req.query("type") || null;
 
   const result = queries.getCompletedJobsGrouped(db, mediaType, page, limit);
-  return c.json(result);
+  return c.json(toSnake(result));
 }
 
 export async function requeueJobHandler(c: Context<AppBindings>) {
@@ -28,5 +29,5 @@ export async function getLibraryItem(c: Context<AppBindings>) {
   const imdbId = c.req.param("imdbId")!;
 
   const detail = queries.getLibraryDetail(db, imdbId);
-  return c.json(detail);
+  return c.json(toSnake(detail));
 }
