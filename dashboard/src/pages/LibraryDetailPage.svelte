@@ -11,7 +11,6 @@
 
   let detail = $state<LibraryDetail | null>(null);
   let loading = $state(true);
-  let confirmDelete = $state<string | null>(null);
   let expandedSeasons = $state<Set<number>>(new Set([1]));
   let seriesVideos = $state<StremioVideo[]>([]);
   let metadataBaseUrl = $state('');
@@ -104,12 +103,7 @@
     }
   }
   async function deleteJob(jobId: string) {
-    if (confirmDelete !== jobId) {
-      confirmDelete = jobId;
-      setTimeout(() => { if (confirmDelete === jobId) confirmDelete = null; }, 5000);
-      return;
-    }
-    confirmDelete = null;
+    if (!confirm('Are you sure you want to delete this?')) return;
     try {
       await api.deleteJob(jobId);
       detail = await api.getLibraryItem(id);
@@ -156,7 +150,7 @@
           ▶ Play
         </a>
         <button class="btn btn-danger" onclick={() => deleteJob(detail!.jobs[0].id)}>
-          {confirmDelete === detail!.jobs[0].id ? '⚠ Confirm Delete' : '✗ Delete'}
+          ✗ Delete
         </button>
       </div>
     {/if}
@@ -198,9 +192,8 @@
                         {@const job = getEpisodeJob(season, video.episode ?? 0)}
                         <a href="/proxy/hls/{job?.id}/master.m3u8" target="_blank" class="btn btn-xs btn-primary">▶</a>
                         <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>
-                          {confirmDelete === job?.id ? '⚠' : '✗'}
+                          ✗
                         </button>
-                      {:else}
                         <button class="btn btn-xs" onclick={() => navigateToSearch(season, video.episode ?? 1)}>🔍 Search</button>
                       {/if}
                     </div>
