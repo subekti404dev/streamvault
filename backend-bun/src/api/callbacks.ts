@@ -4,6 +4,19 @@ import { AppError, badRequest } from "../error";
 import * as queries from "../db/queries";
 import { sendNotification } from "../notifications/telegram";
 
+// Guard insertJobEvent against FK constraint errors (job doesn't exist)
+function safeInsertEvent(c: Context<AppBindings>, ...args: Parameters<typeof queries.insertJobEvent>): boolean {
+  try {
+    queries.insertJobEvent(...args);
+    return true;
+  } catch (e: any) {
+    if (e?.message?.includes("FOREIGN KEY")) {
+      return false;
+    }
+    throw e;
+  }
+}
+
 export async function progressCallback(c: Context<AppBindings>): Promise<Response> {
   const id = c.req.param("id") as string;
   const body = await c.req.json<Record<string, any>>();
@@ -15,19 +28,22 @@ export async function progressCallback(c: Context<AppBindings>): Promise<Respons
 
   // Insert HLS chunk info if present
   if (body.chunk) {
+    const chunk = body.chunk as Record<string, any>;
     queries.insertHlsChunk(c.var.db, {
       jobId: id,
-      chunkIndex: body.chunk.chunk_index ?? 0,
-      filename: body.chunk.filename,
-      discordUrl: body.chunk.discord_url ?? null,
-      discordMessageId: body.chunk.discord_message_id ?? null,
-      durationSeconds: body.chunk.duration_seconds ?? null,
-      fileSizeBytes: null,
+      chunkIndex: chunk.index ?? 0,
+      filename: chunk.filename ?? "",
+      discordUrl: chunk.discord_url ?? null,
+      discordMessageId: chunk.discord_message_id ?? null,
+      durationSeconds: chunk.duration_seconds ?? null,
+      fileSizeBytes: chunk.file_size_bytes ?? null,
     });
   }
 
-  // Log event
-  queries.insertJobEvent(c.var.db, id, phase, "progress", `Progress: ${progressPct}%`, progressPct);
+  // Log event — FK guard: job may not exist
+  if (!safeInsertEvent(c, c.var.db, id, phase, "progress", `Progress: ${progressPct}%`, progressPct)) {
+    return c.json({ error: "Job not found" }, 404);
+  }
 
   // Broadcast
   c.var.eventBus.send({ type: "job_progress", data: { job_id: id, phase, progress_pct: progressPct } });
@@ -45,8 +61,10 @@ export async function checkpointCallback(c: Context<AppBindings>): Promise<Respo
 
   queries.updateJobCheckpoint(c.var.db, id, body.checkpoint, artifactId, fileUrl);
 
-  // Log event
-  queries.insertJobEvent(c.var.db, id, body.checkpoint, "checkpoint", `Checkpoint saved: ${body.checkpoint}`, null);
+  // Log event — FK guard: job may not exist
+  if (!safeInsertEvent(c, c.var.db, id, body.checkpoint, "checkpoint", `Checkpoint saved: ${body.checkpoint}`, null)) {
+    return c.json({ error: "Job not found" }, 404);
+  }
 
   // Broadcast
   c.var.eventBus.send({ type: "job_checkpoint", data: { job_id: id, checkpoint: body.checkpoint } });
@@ -116,8 +134,10 @@ export async function failedCallback(c: Context<AppBindings>): Promise<Response>
 
   queries.updateJobFailed(c.var.db, id, errorMsg);
 
-  // Log event
-  queries.insertJobEvent(c.var.db, id, null, "error", `Failed: ${errorMsg}`, null);
+  // Log event — FK guard: job may not exist
+  if (!safeInsertEvent(c, c.var.db, id, null, "error", `Failed: ${errorMsg}`, null)) {
+    return c.json({ error: "Job not found" }, 404);
+  }
 
   // Broadcast
   c.var.eventBus.send({ type: "job_failed", data: { job_id: id, error: errorMsg } });
