@@ -63,32 +63,43 @@ trap cleanup INT TERM EXIT
 echo "Adding torrent: $MAGNET_URI"
 transmission-remote localhost:9092 --add "$MAGNET_URI"
 
-# Wait for metadata to load
-sleep 5
-
 # If file_idx is specified, select only that file (0-based → 1-based)
 if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
   TID=$(transmission-remote localhost:9092 --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+' | awk '{print $1}' | head -1)
-  if [ -n "$TID" ]; then
-    echo "Selecting only file index $FILE_IDX from torrent $TID..."
-    # Get file count
-    FILE_COUNT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null | grep -cE '^[[:space:]]*[0-9]+:')
-    if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ]; then
-      # Deselect all files (1-indexed)
-      for i in $(seq 1 "$FILE_COUNT"); do
-        transmission-remote localhost:9092 -t "$TID" -g "$i" --no-download > /dev/null 2>&1 || true
-      done
-      # Select only target file (0-based input → 1-based remote)
-      TARGET=$((FILE_IDX + 1))
-      transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
-      echo "  Deselected $FILE_COUNT files, selected only file $TARGET"
-      # Start the torrent (deselecting may pause it)
-      transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
-    else
-      echo "  WARNING: Could not get file list, downloading all files"
-    fi
-  else
+  if [ -z "$TID" ]; then
     echo "  WARNING: Could not find torrent ID, downloading all files"
+  else
+    echo "Selecting only file index $FILE_IDX from torrent $TID..."
+    # Wait for metadata to load (magnet links need DHT/PEX — up to 30s)
+    META_READY=false
+    for attempt in $(seq 1 12); do
+      sleep 5
+      INFO_OUT=$(transmission-remote localhost:9092 -t "$TID" --info 2>&1 || true)
+      if echo "$INFO_OUT" | grep -q "Name:"; then
+        META_READY=true
+        break
+      fi
+      echo "  Waiting for metadata (attempt $attempt/12)..."
+    done
+
+    if ! $META_READY; then
+      echo "  WARNING: Metadata not loaded after 60s, downloading all files"
+    else
+      FILE_COUNT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>&1 | grep -cE '^[[:space:]]*[0-9]+:' || true)
+      echo "  Detected $FILE_COUNT files:"
+      transmission-remote localhost:9092 -t "$TID" --info-files 2>&1 | head -20 || true
+
+      if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ]; then
+        # Deselect all files, then select only target
+        transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
+        TARGET=$((FILE_IDX + 1))
+        transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
+        echo "  Deselected all, selected only file $TARGET of $FILE_COUNT"
+        transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
+      else
+        echo "  WARNING: Could not parse file list, downloading all files"
+      fi
+    fi
   fi
 fi
 
