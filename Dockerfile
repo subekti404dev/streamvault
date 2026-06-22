@@ -26,6 +26,7 @@ COPY --from=backend /app/node_modules ./node_modules
 COPY --from=backend /app/src ./src
 COPY --from=backend /app/migrations ./migrations
 COPY --from=backend /app/package.json ./
+COPY --from=frontend /app/dashboard/dist ./dashboard
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
