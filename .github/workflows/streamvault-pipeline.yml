@@ -219,13 +219,11 @@ jobs:
           LOG_FILE="/tmp/ffmpeg_transcode.log"
           mkdir -p "$HLS_DIR"
 
-          # Determine target resolution
-          if [ "$SOURCE_HEIGHT" -ge 2160 ]; then
+          # Determine target resolution — target 1080p, keep original if lower
+          if [ "$SOURCE_HEIGHT" -ge 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
             TARGET_HEIGHT=1080
-          elif [ "$SOURCE_HEIGHT" -ge 1080 ]; then
-            TARGET_HEIGHT=720
           else
-            TARGET_HEIGHT=480
+            TARGET_HEIGHT=$SOURCE_HEIGHT
           fi
           echo "Target: ${TARGET_HEIGHT}p"
 
