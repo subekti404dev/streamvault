@@ -107,49 +107,46 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   async function selectItem(item: StremioMetaItem) {
     pushView();
     selectedItem = item;
-    loading = true;
     result = null;
-    try {
-      const response = await api.getTorrents(item.type, item.id, metadataBaseUrl);
-      result = {
-        meta: { ...item, title: item.name },
-        torrents: response.torrents,
-      };
-      if (item.type === 'series') {
-        try {
-          seriesMeta = await api.getStremioMetaDetail('series', item.id, metadataBaseUrl);
-        } catch {
-          seriesMeta = null;
-        }
-      } else {
-        seriesMeta = null;
+    error = '';
+    seriesMeta = null;
+    let resolvedImdbId = item.id;
+    let resolvedType = item.type;
+    if (item.type === 'series') {
+      try {
+        loading = true;
+        const metaResponse = await api.getStremioMeta(item.type, item.id, metadataBaseUrl);
+        resolvedImdbId = metaResponse.meta.imdb_id || item.id;
+        seriesMeta = metaResponse.meta;
+      } catch (e: any) {
+        error = `Failed to fetch metadata: ${e.message}`;
+        loading = false;
+        return;
       }
-    } catch (e: any) {
-      error = e.message || 'Failed to load torrents';
-    } finally {
-      loading = false;
     }
+    imdbId = resolvedImdbId;
+    mediaType = resolvedType;
+    season = 1;
+    episode = 1;
+    if (resolvedType === 'movie') {
+      await handleImdbSearch();
+    }
+    loading = false;
   }
-
   async function handleImdbSearch() {
     if (!imdbId.trim()) return;
     loading = true;
     error = '';
     result = null;
-    catalogResults = [];
-    selectedItem = null;
     try {
-      const response = await api.getTorrents(mediaType, imdbId.trim(), metadataBaseUrl);
-      const metaResponse = await api.getStremioMeta(mediaType, imdbId.trim(), metadataBaseUrl);
-      result = {
-        meta: metaResponse.meta,
-        torrents: response.torrents,
-      };
-      if (mediaType === 'series' && result.torrents.length > 0) {
-        result.torrents = result.torrents.filter(t => t.season === season && t.episode === episode);
-      }
+      result = await api.search(
+        imdbId.trim(),
+        mediaType,
+        mediaType === 'series' ? season : undefined,
+        mediaType === 'series' ? episode : undefined,
+      );
     } catch (e: any) {
-      error = `Failed: ${e.message}`;
+      error = e.message || 'Search failed';
     } finally {
       loading = false;
     }
