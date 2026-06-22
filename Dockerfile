@@ -9,16 +9,14 @@ COPY dashboard/ ./
 RUN npm run build
 
 # =============================================================================
-# Stage 2: Build backend (Rust)
+# Stage 2: Build backend binary (Bun compile)
 # =============================================================================
-FROM rust:slim AS backend
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:alpine AS backend
 WORKDIR /app
-COPY backend/Cargo.toml backend/Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release 2>/dev/null || true
-COPY backend/ ./
-RUN touch src/main.rs && cargo build --release
+COPY backend-bun/package.json backend-bun/bun.lock* ./
+RUN bun install --frozen-lockfile --production
+COPY backend-bun/ ./
+RUN bun build --compile src/index.ts --outfile streamvault
 
 # =============================================================================
 # Stage 3: Runtime
@@ -26,9 +24,9 @@ RUN touch src/main.rs && cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=backend /app/target/release/streamvault .
+COPY --from=backend /app/streamvault .
 COPY --from=frontend /app/dashboard/dist ./dashboard
-COPY docker/entrypoint.sh .
+COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 ENV STREAMVAULT_DASHBOARD_DIR=/app/dashboard

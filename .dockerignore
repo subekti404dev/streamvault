@@ -1,4 +1,7 @@
 node_modules/
+backend/
+dashboard/dist/
+backend-bun/node_modules/
 .git/
 target/
 .env
@@ -6,4 +9,3 @@ target/
 *.db-wal
 *.db-shm
 .vite/
-dashboard/dist/
