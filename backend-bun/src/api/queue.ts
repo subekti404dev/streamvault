@@ -18,21 +18,29 @@ export async function createJob(c: Context<AppBindings>) {
   const raw = await c.req.json();
   const body = raw as Record<string, unknown>;
 
+  // Required fields — match Rust CreateJobRequest validation
+  const imdbId = body.imdb_id;
+  const mediaType = body.media_type;
+  const magnetUri = body.magnet_uri;
+  if (!imdbId || typeof imdbId !== "string" || !imdbId.trim()) throw badRequest("imdb_id is required");
+  if (!mediaType || typeof mediaType !== "string" || !mediaType.trim()) throw badRequest("media_type is required");
+  if (!magnetUri || typeof magnetUri !== "string" || !magnetUri.trim()) throw badRequest("magnet_uri is required");
+
   const jobId = crypto.randomUUID();
 
   const newJob: queries.NewJob = {
     id: jobId,
-    imdbId: body.imdb_id as string,
-    mediaType: body.media_type as string,
+    imdbId: imdbId,
+    mediaType: mediaType,
     season: (body.season as number | undefined) ?? null,
     episode: (body.episode as number | undefined) ?? null,
     title: (body.title as string | undefined) ?? null,
     posterUrl: (body.poster_url as string | undefined) ?? null,
-    magnetUri: body.magnet_uri as string,
-    infohash: body.infohash as string,
-    torrentName: body.torrent_name as string,
-    fileIdx: body.file_idx as number,
-    fileSizeBytes: body.file_size_bytes as number,
+    magnetUri: magnetUri,
+    infohash: (body.infohash as string) ?? "",
+    torrentName: (body.torrent_name as string) ?? "",
+    fileIdx: (body.file_idx as number) ?? 0,
+    fileSizeBytes: (body.file_size_bytes as number) ?? 0,
   };
 
   queries.insertJob(c.var.db, newJob);
