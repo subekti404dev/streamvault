@@ -79,9 +79,23 @@ app.get("/stream/:type/:id.json", streamHandler);
 app.get("/proxy/hls/:jobId/master.m3u8", playlistHandler);
 app.get("/proxy/hls/:jobId/*", chunkHandler);
 
-// Static file serving — Svelte dashboard (fallback for SPA)
-app.use("/*", serveStatic({ root: config.dashboardDir }));
-app.get("/*", serveStatic({ path: `${config.dashboardDir}/index.html` }));
+// Static file serving — Svelte dashboard (SPA fallback)
+// serveStatic returns 404 on missing files and does NOT call next(),
+// so we only match exact static assets with the wildcard, then
+// use notFound to serve index.html for SPA client-side routing.
+app.use("/assets/*", serveStatic({ root: config.dashboardDir }));
+app.use("/favicon.svg", serveStatic({ path: `${config.dashboardDir}/favicon.svg` }));
+app.use("/icons.svg", serveStatic({ path: `${config.dashboardDir}/icons.svg` }));
+app.notFound((c) => {
+  // Serve index.html for SPA client-side routing
+  const indexFile = Bun.file(`${config.dashboardDir}/index.html`);
+  if (indexFile.size > 0) {
+    return new Response(indexFile.stream(), {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+  return c.text("Not Found", 404);
+});
 
 // ── Startup ──
 startKeepAlive();
