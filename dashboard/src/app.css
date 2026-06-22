@@ -8,6 +8,7 @@
 
   /* Accent */
   --accent: #F5C518;
+  --primary: var(--accent);
   --accent-hover: #FFD74A;
   --success: #00E5A0;
   --danger: #FF4466;

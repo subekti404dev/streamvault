@@ -147,8 +147,8 @@
 
   .tab.active {
     background: var(--surface);
-    border-color: #e5b800;
-    color: #e5b800;
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   .library-grid {
