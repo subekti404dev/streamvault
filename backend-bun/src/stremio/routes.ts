@@ -62,6 +62,7 @@ export async function metaHandler(c: Context<AppBindings>) {
 }
 
 export async function streamHandler(c: Context<AppBindings>) {
+  console.log("[stream] id_RAW=%s type=%s", c.req.param("id"), c.req.param("type"));
   const id = (c.req.param("id") || "").replace(/\.json$/, "");
   const parts = id.split(":");
   const imdbId = parts[0];
