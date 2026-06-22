@@ -75,9 +75,9 @@ app.route("/api/v1", api);
 
 // Public Stremio addon routes
 app.get("/manifest.json", manifestHandler);
-app.get("/catalog/:type/:catalogId.json", catalogHandler);
-app.get("/meta/:type/:imdbId.json", metaHandler);
-app.get("/stream/:type/:id.json", streamHandler);
+app.get("/catalog/:type/:catalogId", catalogHandler);
+app.get("/meta/:type/:imdbId", metaHandler);
+app.get("/stream/:type/:id", streamHandler);
 app.get("/proxy/hls/:jobId/master.m3u8", playlistHandler);
 app.get("/proxy/hls/:jobId/:filename", chunkHandler);
 
