@@ -1,13 +1,10 @@
 #!/bin/bash
 # monitor-transmission.sh — Run transmission-daemon with progress callbacks
-# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri>
-set -uo pipefail
-
-JOB_ID="${1:?Missing job_id}"
+# Usage: monitor-transmission.sh <job_id> <callback_url> <callback_token> <magnet_uri> [file_idx]
 CALLBACK_URL="${2:?Missing callback_url}"
 CALLBACK_TOKEN="${3:?Missing callback_token}"
 MAGNET_URI="${4:?Missing magnet_uri}"
-
+FILE_IDX="${5:-}"
 callback() {
   local endpoint="$1"
   local payload="$2"
@@ -69,8 +66,31 @@ transmission-remote localhost:9092 --add "$MAGNET_URI"
 # Wait for metadata to load
 sleep 5
 
-# Initial progress
-callback "progress" '{"phase":"download","progress_pct":0}'
+# If file_idx is specified, select only that file (0-based → 1-based)
+if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
+  TID=$(transmission-remote localhost:9092 --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+' | awk '{print $1}' | head -1)
+  if [ -n "$TID" ]; then
+    echo "Selecting only file index $FILE_IDX from torrent $TID..."
+    # Get file count
+    FILE_COUNT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null | grep -cE '^[[:space:]]*[0-9]+:')
+    if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ]; then
+      # Deselect all files (1-indexed)
+      for i in $(seq 1 "$FILE_COUNT"); do
+        transmission-remote localhost:9092 -t "$TID" -g "$i" --no-download > /dev/null 2>&1 || true
+      done
+      # Select only target file (0-based input → 1-based remote)
+      TARGET=$((FILE_IDX + 1))
+      transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
+      echo "  Deselected $FILE_COUNT files, selected only file $TARGET"
+      # Start the torrent (deselecting may pause it)
+      transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
+    else
+      echo "  WARNING: Could not get file list, downloading all files"
+    fi
+  else
+    echo "  WARNING: Could not find torrent ID, downloading all files"
+  fi
+fi
 
 LAST_PCT=-1
 DONE=false

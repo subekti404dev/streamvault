@@ -113,7 +113,8 @@ jobs:
             "${{ inputs.job_id }}" \
             "${{ inputs.callback_url }}" \
             "${{ inputs.callback_token }}" \
-            "${{ inputs.magnet_uri }}"
+            "${{ inputs.magnet_uri }}" \
+            "${{ inputs.file_idx }}"
 
       - name: Save download checkpoint
         if: inputs.skip_download != 'true'
