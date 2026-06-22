@@ -85,10 +85,9 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
     if ! $META_READY; then
       echo "  WARNING: Metadata not loaded after 60s, downloading all files"
     else
-      FILE_COUNT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>&1 | grep -cE '^[[:space:]]*[0-9]+:' || true)
+      FILE_COUNT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>&1 | grep -cE '^[[:space:]]*[0-9]' || echo 0)
       echo "  Detected $FILE_COUNT files:"
       transmission-remote localhost:9092 -t "$TID" --info-files 2>&1 | head -20 || true
-
       if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ]; then
         # Deselect all files, then select only target
         transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
