@@ -1,9 +1,9 @@
-CREATE TABLE `app_settings` (
+CREATE TABLE IF NOT EXISTS `app_settings` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value` text
 );
 --> statement-breakpoint
-CREATE TABLE `cinemeta_cache` (
+CREATE TABLE IF NOT EXISTS `cinemeta_cache` (
 	`imdb_id` text NOT NULL,
 	`media_type` text NOT NULL,
 	`title` text,
@@ -15,7 +15,7 @@ CREATE TABLE `cinemeta_cache` (
 	PRIMARY KEY(`imdb_id`, `media_type`)
 );
 --> statement-breakpoint
-CREATE TABLE `hls_chunks` (
+CREATE TABLE IF NOT EXISTS `hls_chunks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`job_id` text NOT NULL,
 	`chunk_index` integer NOT NULL,
@@ -28,8 +28,8 @@ CREATE TABLE `hls_chunks` (
 	FOREIGN KEY (`job_id`) REFERENCES `jobs`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_hls_chunks_job_id` ON `hls_chunks` (`job_id`);--> statement-breakpoint
-CREATE TABLE `job_events` (
+CREATE INDEX IF NOT EXISTS `idx_hls_chunks_job_id` ON `hls_chunks` (`job_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `job_events` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`job_id` text NOT NULL,
 	`phase` text,
@@ -40,8 +40,8 @@ CREATE TABLE `job_events` (
 	FOREIGN KEY (`job_id`) REFERENCES `jobs`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_job_events_job_id` ON `job_events` (`job_id`);--> statement-breakpoint
-CREATE TABLE `jobs` (
+CREATE INDEX IF NOT EXISTS `idx_job_events_job_id` ON `job_events` (`job_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `jobs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`imdb_id` text NOT NULL,
 	`media_type` text NOT NULL,
@@ -75,6 +75,6 @@ CREATE TABLE `jobs` (
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `idx_jobs_status` ON `jobs` (`status`);--> statement-breakpoint
-CREATE INDEX `idx_jobs_imdb_id` ON `jobs` (`imdb_id`);--> statement-breakpoint
-CREATE INDEX `idx_jobs_created_at` ON `jobs` (`created_at`);
+CREATE INDEX IF NOT EXISTS `idx_jobs_status` ON `jobs` (`status`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_jobs_imdb_id` ON `jobs` (`imdb_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_jobs_created_at` ON `jobs` (`created_at`);
