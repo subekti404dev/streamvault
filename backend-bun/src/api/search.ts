@@ -1,3 +1,4 @@
+import { toSnake } from "../db/transform";
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { badRequest, notFound } from "../error";
@@ -286,13 +287,12 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
 
   const torrents = await searchTorrentio(c, body.media_type, streamId);
   const filtered = filterTorrents(torrents, 5);
-
-  return c.json({
+  return c.json(toSnake({
     meta: {
       title: meta.title ?? body.imdb_id,
       poster: meta.posterUrl,
       year: meta.year,
     },
     torrents: filtered,
-  } satisfies SearchResponse);
+  } satisfies SearchResponse));
 }

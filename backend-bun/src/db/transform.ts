@@ -9,6 +9,7 @@ const SNAKE_MAP: Record<string, string> = {
   torrentName: "torrent_name",
   fileIdx: "file_idx",
   fileSizeBytes: "file_size_bytes",
+  sizeBytes: "size_bytes",
   currentPhase: "current_phase",
   progressPct: "progress_pct",
   transcodePct: "transcode_pct",
