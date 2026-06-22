@@ -57,9 +57,10 @@ api.post("/settings/test-notification", testNotification);
 api.get("/library", listLibrary);
 api.post("/library/:id/requeue", requeueJobHandler);
 api.get("/library/:imdbId", getLibraryItem);
-app.route("/api/v1", api);
 
-// Callback sub-router — X-Callback-Token auth
+// CRITICAL: Callback sub-router MUST be registered BEFORE /api/v1 router.
+// Hono tries sub-routers in registration order; /api/v1/jobs/* also
+// matches /api/v1 which would intercept callbacks with the wrong auth.
 const cb = new Hono();
 cb.use("*", callbackAuthMiddleware);
 cb.post("/:id/progress", progressCallback);
@@ -67,6 +68,8 @@ cb.post("/:id/checkpoint", checkpointCallback);
 cb.post("/:id/complete", completeCallback);
 cb.post("/:id/failed", failedCallback);
 app.route("/api/v1/jobs", cb);
+
+app.route("/api/v1", api);
 
 // Public Stremio addon routes
 app.get("/manifest.json", manifestHandler);

@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
-import { badRequest } from "../error";
+import { AppError, badRequest } from "../error";
 import * as queries from "../db/queries";
 import { sendNotification } from "../notifications/telegram";
 
@@ -101,6 +101,7 @@ export async function completeCallback(c: Context<AppBindings>): Promise<Respons
       }
     }
   } catch (e: any) {
+    if (e instanceof AppError) throw e;
     console.error(`[callback] complete failed job=${id}:`, e);
     return c.json({ error: e.message || "Internal error" }, 500);
   }
