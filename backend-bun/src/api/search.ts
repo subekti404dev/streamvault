@@ -151,7 +151,7 @@ function filterTorrents(torrents: TorrentEntry[], limit: number): TorrentEntry[]
     .slice(0, limit);
 }
 
-function buildMagnet(infohash: string, dn: string): string {
+export function buildMagnet(infohash: string, dn: string): string {
   const dnEncoded = encodeURIComponent(dn);
   const parts = [`xt=urn:btih:${infohash}`, `dn=${dnEncoded}`];
   for (const tr of DEFAULT_TRACKERS) {

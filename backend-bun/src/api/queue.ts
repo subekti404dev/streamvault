@@ -4,6 +4,7 @@ import { badRequest } from "../error";
 import * as queries from "../db/queries";
 import { triggerPipeline, cancelGhRun } from "../pipeline/trigger";
 import { sendNotification } from "../notifications/telegram";
+import { buildMagnet } from "./search";
 
 const ACTIVE_STATUSES = [
   "processing",
@@ -17,14 +18,20 @@ const ACTIVE_STATUSES = [
 export async function createJob(c: Context<AppBindings>) {
   const raw = await c.req.json();
   const body = raw as Record<string, unknown>;
-
   // Required fields — match Rust CreateJobRequest validation
   const imdbId = body.imdb_id;
   const mediaType = body.media_type;
-  const magnetUri = body.magnet_uri;
+  const infohash = body.infohash;
+  const torrentName = (body.torrent_name as string) ?? "";
+  const title = (body.title as string) ?? torrentName;
+
   if (!imdbId || typeof imdbId !== "string" || !imdbId.trim()) throw badRequest("imdb_id is required");
   if (!mediaType || typeof mediaType !== "string" || !mediaType.trim()) throw badRequest("media_type is required");
-  if (!magnetUri || typeof magnetUri !== "string" || !magnetUri.trim()) throw badRequest("magnet_uri is required");
+  if (!infohash || typeof infohash !== "string" || !infohash.trim()) throw badRequest("infohash is required");
+
+  // Auto-construct magnet URI with trackers if not provided (backward compat)
+  const magnetUri = (body.magnet_uri as string)?.trim()
+    || buildMagnet(infohash, title);
 
   const jobId = crypto.randomUUID();
 
@@ -34,11 +41,11 @@ export async function createJob(c: Context<AppBindings>) {
     mediaType: mediaType,
     season: (body.season as number | undefined) ?? null,
     episode: (body.episode as number | undefined) ?? null,
-    title: (body.title as string | undefined) ?? null,
+    title: title || null,
     posterUrl: (body.poster_url as string | undefined) ?? null,
     magnetUri: magnetUri,
-    infohash: (body.infohash as string) ?? "",
-    torrentName: (body.torrent_name as string) ?? "",
+    infohash: infohash,
+    torrentName: torrentName || null,
     fileIdx: (body.file_idx as number) ?? 0,
     fileSizeBytes: (body.file_size_bytes as number) ?? 0,
   };
@@ -46,9 +53,9 @@ export async function createJob(c: Context<AppBindings>) {
   queries.insertJob(c.var.db, newJob);
   queries.insertJobEvent(c.var.db, jobId, null, "status_change", "Job queued", null);
 
-  const title = newJob.title ?? "";
-  c.var.eventBus.send({ type: "job_created", data: { job_id: jobId, title } });
-  sendNotification(c, { type: "JobQueued", title });
+  const eventTitle = newJob.title ?? "";
+  c.var.eventBus.send({ type: "job_created", data: { job_id: jobId, title: eventTitle } });
+  sendNotification(c, { type: "JobQueued", title: eventTitle });
 
   return c.json({ job_id: jobId, status: "queued" }, 201);
 }
