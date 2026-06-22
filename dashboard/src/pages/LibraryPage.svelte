@@ -137,18 +137,18 @@
 
   .tab {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-secondary);
+    border: 1px solid var(--primary);
+    background: var(--primary);
+    color: #000;
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
   }
 
   .tab.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #000;
+    background: var(--surface);
+    border-color: #e5b800;
+    color: #e5b800;
   }
 
   .library-grid {
