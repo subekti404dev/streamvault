@@ -87,8 +87,10 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
     else
       # transmission-remote outputs torrent name/summary on stderr — suppress it
       FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
-      # Skip header lines, count files
+      # Skip header lines, count file entries. Sanitize to a single integer.
       FILE_COUNT=$(echo "$FILE_OUT" | tail -n +3 | grep -cE '^[[:space:]]*[0-9]' || echo 0)
+      FILE_COUNT=$(echo "$FILE_COUNT" | tr -d '\n\r' | grep -oE '[0-9]+' | head -1)
+      FILE_COUNT=${FILE_COUNT:-0}
 
       # File list may arrive AFTER name metadata — wait for it
       if [ "$FILE_COUNT" -eq 0 ] 2>/dev/null; then
@@ -97,6 +99,8 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
           sleep 5
           FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
           FILE_COUNT=$(echo "$FILE_OUT" | tail -n +3 | grep -cE '^[[:space:]]*[0-9]' || echo 0)
+          FILE_COUNT=$(echo "$FILE_COUNT" | tr -d '\n\r' | grep -oE '[0-9]+' | head -1)
+          FILE_COUNT=${FILE_COUNT:-0}
           if [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
             echo "  File list received!"
             break
