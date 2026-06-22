@@ -30,6 +30,8 @@ export class SseClient {
     return new ReadableStream({
       start: (controller) => {
         this.controller = controller;
+        // Flush headers immediately so reverse proxies don't buffer
+        controller.enqueue(new TextEncoder().encode(":ok\n\n"));
         this.unsubscribe = eventBus.subscribe((event) => {
           const lines = [
             `event: ${event.type}`,
