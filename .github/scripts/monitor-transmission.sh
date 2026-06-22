@@ -113,11 +113,17 @@ if [ -n "$FILE_IDX" ] && [[ "$FILE_IDX" =~ ^[0-9]+$ ]]; then
       echo "$FILE_OUT" | head -20
 
       if [ -n "$FILE_COUNT" ] && [ "$FILE_COUNT" -gt 0 ] 2>/dev/null; then
-        # Deselect all files, then select only target
+        # Detect indexing: colon format (0:, 1:) = 0-based; tabular (1  , 2  ) = 1-based
+        FIRST_ENTRY=$(echo "$FILE_OUT" | tail -n +3 | grep -m1 '^[[:space:]]*[0-9]')
+        FIRST_NUM=$(echo "$FIRST_ENTRY" | grep -oE '^[[:space:]]*[0-9]+' | tr -d ' ')
+        if [ "$FIRST_NUM" = "0" ]; then
+          TARGET=$FILE_IDX                 # 0-based format — use directly
+        else
+          TARGET=$((FILE_IDX + 1))         # 1-based format — convert
+        fi
         transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
-        TARGET=$((FILE_IDX + 1))
         transmission-remote localhost:9092 -t "$TID" -g "$TARGET" > /dev/null 2>&1 || true
-        echo "  Deselected all, selected only file $TARGET of $FILE_COUNT"
+        echo "  Deselected all, selected only file $TARGET of $FILE_COUNT (idx $FILE_IDX)"
         transmission-remote localhost:9092 -t "$TID" --start > /dev/null 2>&1 || true
       else
         echo "  WARNING: Could not parse file list, downloading all files"
