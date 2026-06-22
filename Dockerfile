@@ -1,12 +1,12 @@
 # =============================================================================
 # Stage 1: Build frontend (Svelte 5)
 # =============================================================================
-FROM node:22-alpine AS frontend
+FROM oven/bun:alpine AS frontend
 WORKDIR /app/dashboard
 COPY dashboard/package*.json ./
-RUN npm ci
+RUN bun install --frozen-lockfile
 COPY dashboard/ ./
-RUN npm run build
+RUN bun run build
 
 # =============================================================================
 # Stage 2: Install backend deps
