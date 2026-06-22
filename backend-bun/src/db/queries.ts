@@ -322,6 +322,11 @@ export function deleteJob(db: DrizzleDB, id: string): void {
   db.delete(jobs).where(eq(jobs.id, id)).run();
 }
 
+export function deleteJobsByImdbId(db: DrizzleDB, imdbId: string): number {
+  const result = db.delete(jobs).where(eq(jobs.imdbId, imdbId)).run();
+  return result.changes;
+}
+
 // ── Job Events ──
 
 export function insertJobEvent(

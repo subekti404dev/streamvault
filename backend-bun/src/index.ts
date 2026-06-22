@@ -23,7 +23,7 @@ import { searchHandler } from "./api/search";
 import { inspectTorrent } from "./api/torrent";
 import { createJob, listJobs, getJob, retryJob, deleteJobHandler } from "./api/queue";
 import { getSettings, updateSettings, testNotification } from "./api/settings";
-import { listLibrary, requeueJobHandler, getLibraryItem } from "./api/library";
+import { listLibrary, requeueJobHandler, getLibraryItem, deleteLibraryItem } from "./api/library";
 import { progressCallback, checkpointCallback, completeCallback, failedCallback } from "./api/callbacks";
 import { manifestHandler, catalogHandler, metaHandler, streamHandler } from "./stremio/routes";
 import { playlistHandler, chunkHandler } from "./stremio/proxy";
@@ -58,6 +58,7 @@ api.post("/settings/test-notification", testNotification);
 api.get("/library", listLibrary);
 api.post("/library/:id/requeue", requeueJobHandler);
 api.get("/library/:imdbId", getLibraryItem);
+api.delete("/library/:imdbId", deleteLibraryItem);
 
 // CRITICAL: Callback sub-router MUST be registered BEFORE /api/v1 router.
 // Hono tries sub-routers in registration order; /api/v1/jobs/* also

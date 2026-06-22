@@ -31,3 +31,13 @@ export async function getLibraryItem(c: Context<AppBindings>) {
   const detail = queries.getLibraryDetail(db, imdbId);
   return c.json(toSnake(detail));
 }
+
+export async function deleteLibraryItem(c: Context<AppBindings>) {
+  const { db } = c.var;
+  const imdbId = c.req.param("imdbId")!;
+
+  const count = queries.deleteJobsByImdbId(db, imdbId);
+  if (count === 0) throw notFound("No completed jobs for " + imdbId);
+
+  return c.json({ deleted: count });
+}
