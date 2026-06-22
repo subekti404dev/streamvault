@@ -137,9 +137,9 @@
 
   .tab {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--primary);
-    background: var(--primary);
-    color: #000;
+    border: 1px solid var(--text-secondary);
+    background: #1A1A1A;
+    color: var(--text-secondary);
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
