@@ -138,10 +138,18 @@ jobs:
         id: detect
         shell: bash
         run: |
-          INPUT_FILE=$(find ./downloads -type f \
+          INPUT_FILE=$(find ./downloads -type f -size +100M \
             \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
             -not -name "*.log" -not -name "*.torrent" \
             -exec ls -1S {} + 2>/dev/null | head -1)
+
+          # Fallback: no large file yet, try any video (might be single file < 100M)
+          if [ -z "$INPUT_FILE" ]; then
+            INPUT_FILE=$(find ./downloads -type f \
+              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
+              -not -name "*.log" -not -name "*.torrent" \
+              -exec ls -1S {} + 2>/dev/null | head -1)
+          fi
 
           if [ -z "$INPUT_FILE" ]; then
             echo "❌ Error: No video file found in ./downloads"
