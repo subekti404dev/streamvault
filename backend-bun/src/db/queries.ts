@@ -324,7 +324,7 @@ export function insertJobEvent(
 export function getJobEvents(db: DrizzleDB, jobId: string): JobEvent[] {
   const rows = db.select().from(jobEvents)
     .where(eq(jobEvents.jobId, jobId))
-    .orderBy(jobEvents.createdAt)
+    .orderBy(desc(jobEvents.createdAt))
     .all();
   return castJobEvents(rows as unknown as Record<string, unknown>[]);
 }
