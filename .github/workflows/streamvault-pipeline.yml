@@ -155,9 +155,9 @@ jobs:
           rm -f "$LOG_FILE"
           ffmpeg -y \
             -i "$INPUT_FILE" \
-            -c:v libx264 -profile:v high -pix_fmt yuv420p -preset veryfast -crf 28 \
+            -c:v libx264 -profile:v high -preset veryfast -crf 28 \
             -c:a aac -ac 2 -b:a 128k \
-            -vf "scale=-2:$TARGET_HEIGHT" \
+            -vf "scale=-2:$TARGET_HEIGHT,format=yuv420p" \
             -force_key_frames "expr:gte(t,n_forced*1)" \
             -hls_time 1 \
             -hls_segment_size 1000000 \
