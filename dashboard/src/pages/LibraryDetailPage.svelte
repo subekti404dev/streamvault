@@ -194,6 +194,7 @@
                         <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>
                           ✗
                         </button>
+                      {:else}
                         <button class="btn btn-xs" onclick={() => navigateToSearch(season, video.episode ?? 1)}>🔍 Search</button>
                       {/if}
                     </div>
