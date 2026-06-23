@@ -157,6 +157,7 @@ jobs:
             -i "$INPUT_FILE" \
             -c:v libx264 -profile:v high -preset veryfast -crf 28 \
             -c:a aac -ac 2 -b:a 128k \
+            -max_muxing_queue_size 1024 \
             -vf "scale=-2:$TARGET_HEIGHT,format=yuv420p" \
             -force_key_frames "expr:gte(t,n_forced*1)" \
             -hls_time 1 \
