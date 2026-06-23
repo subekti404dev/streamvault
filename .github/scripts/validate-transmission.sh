@@ -127,7 +127,7 @@ run_scenario() {
 
   # Loop matching — index only
   MATCHED=false
-  for a in $(seq 1 24); do
+  for a in $(seq 1 60); do
     sleep 5
     FOUT=$(fetch_info_files)
 

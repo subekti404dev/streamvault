@@ -114,7 +114,7 @@ else
         echo "  Invalid file_idx ($FILE_IDX) — must be numeric, downloading entire torrent"
       else
         TARGET=""
-        for attempt in $(seq 1 24); do
+        for attempt in $(seq 1 60); do
           sleep 5
           FILE_OUT=$(transmission-remote localhost:9092 -t "$TID" --info-files 2>/dev/null || true)
 
