@@ -12,9 +12,7 @@ import { jobs } from "../db/schema";
 const ACTIVE_STATUSES = [
   "processing",
   "downloading",
-  "checkpoint_download",
   "transcoding",
-  "checkpoint_transcode",
   "uploading",
 ];
 
@@ -114,24 +112,8 @@ export async function retryJob(c: Context<AppBindings>) {
       .where(eq(jobs.id, id))
       .run();
   }
-
-  const skipDownload =
-    (job.lastCheckpoint === "download" || job.lastCheckpoint === "transcode") &&
-    job.ghArtifactDlUrl != null;
-  const skipTranscode =
-    job.lastCheckpoint === "transcode" && job.ghArtifactTcUrl != null;
-
-  queries.insertJobEvent(
-    c.var.db,
-    id,
-    null,
-    "status_change",
-    `Retry triggered (last checkpoint: ${job.lastCheckpoint}, skip_dl: ${skipDownload}, skip_tc: ${skipTranscode})`,
-    null,
-  );
-
   try {
-    const runId = await triggerPipeline(c, job, skipDownload, skipTranscode);
+    const runId = await triggerPipeline(c, job);
     queries.updateJobStatus(c.var.db, id, "processing");
     queries.insertJobEvent(
       c.var.db,

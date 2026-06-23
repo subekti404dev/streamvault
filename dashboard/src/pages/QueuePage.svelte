@@ -49,7 +49,7 @@
   $effect(() => {
     loadQueue();
     const unsub = onSseEvent((event) => {
-      if (['job_created', 'job_started', 'job_progress', 'job_checkpoint', 'job_completed', 'job_failed', 'job_retried', 'job_removed'].includes(event.type as string)) {
+      if (['job_created', 'job_started', 'job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_removed'].includes(event.type as string)) {
         loadQueue();
       }
     });

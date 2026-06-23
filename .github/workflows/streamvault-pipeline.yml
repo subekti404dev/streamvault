@@ -51,26 +51,6 @@ on:
         required: false
         type: string
         default: ''
-      skip_download:
-        description: 'Skip download, restore from checkpoint'
-        required: false
-        type: string
-        default: 'false'
-      skip_transcode:
-        description: 'Skip transcode, restore from checkpoint'
-        required: false
-        type: string
-        default: 'false'
-      checkpoint_dl_url:
-        description: 'Download artifact download URL for resume'
-        required: false
-        type: string
-        default: ''
-      checkpoint_tc_url:
-        description: 'Transcode artifact download URL for resume'
-        required: false
-        type: string
-        default: ''
 env:
   CALLBACK_URL: ${{ inputs.callback_url }}
   CALLBACK_TOKEN: ${{ inputs.callback_token }}
@@ -89,24 +69,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore download from URL
-        if: inputs.skip_download == 'true' && inputs.checkpoint_dl_url != ''
-        run: |
-          mkdir -p ./downloads
-          curl -L -H "Authorization: Bearer ${{ github.token }}" \
-            -o checkpoint-dl.zip "${{ inputs.checkpoint_dl_url }}"
-          unzip -o checkpoint-dl.zip -d ./downloads/
-          rm checkpoint-dl.zip
-
-      - name: Restore download checkpoint
-        if: inputs.skip_download == 'true' && inputs.checkpoint_dl_url == ''
-        uses: actions/download-artifact@v4
-        with:
-          name: checkpoint-dl-${{ inputs.job_id }}
-          path: ./downloads/
-
       - name: Download torrent
-        if: inputs.skip_download != 'true'
         run: |
           chmod +x .github/scripts/*.sh
           .github/scripts/monitor-transmission.sh \
@@ -115,24 +78,6 @@ jobs:
             "${{ inputs.callback_token }}" \
             "${{ inputs.magnet_uri }}" \
             "${{ inputs.file_idx }}"
-
-      - name: Save download checkpoint
-        if: inputs.skip_download != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: checkpoint-dl-${{ inputs.job_id }}
-          path: ./downloads/
-          retention-days: 7
-          if-no-files-found: warn
-
-      - name: Resolve download file URL
-        if: inputs.skip_download != 'true'
-        run: |
-          chmod +x .github/scripts/*.sh
-          .github/scripts/upload-checkpoint.sh \
-            "${{ inputs.job_id }}" "download" "./downloads"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Detect source resolution
         id: detect
@@ -188,24 +133,8 @@ jobs:
           fi
 
           echo "source_height=$SOURCE_HEIGHT" >> "$GITHUB_OUTPUT"
-      - name: Restore transcode from URL
-        if: inputs.skip_transcode == 'true' && inputs.checkpoint_tc_url != ''
-        run: |
-          mkdir -p ./hls
-          curl -L -H "Authorization: Bearer ${{ github.token }}" \
-            -o checkpoint-tc.zip "${{ inputs.checkpoint_tc_url }}"
-          unzip -o checkpoint-tc.zip -d ./hls/
-          rm checkpoint-tc.zip
-
-      - name: Restore transcode checkpoint
-        if: inputs.skip_transcode == 'true' && inputs.checkpoint_tc_url == ''
-        uses: actions/download-artifact@v4
-        with:
-          name: checkpoint-tc-${{ inputs.job_id }}
-          path: ./hls/
 
       - name: Transcode to HLS
-        if: inputs.skip_transcode != 'true'
         run: |
           INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
@@ -287,27 +216,6 @@ jobs:
 
           .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
             '{"phase":"transcode","progress_pct":100}'
-
-          .github/scripts/callback.sh "${{ inputs.job_id }}" "checkpoint" \
-            '{"checkpoint":"transcode","artifact_id":"checkpoint-tc-${{ inputs.job_id }}"}'
-
-      - name: Save transcode checkpoint
-        if: inputs.skip_transcode != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: checkpoint-tc-${{ inputs.job_id }}
-          path: ./hls/
-          retention-days: 7
-          if-no-files-found: warn
-
-      - name: Resolve transcode file URL
-        if: inputs.skip_transcode != 'true'
-        run: |
-          chmod +x .github/scripts/*.sh
-          .github/scripts/upload-checkpoint.sh \
-            "${{ inputs.job_id }}" "transcode" "./hls"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Upload to Discord
         env:

@@ -51,31 +51,6 @@ export async function progressCallback(c: Context<AppBindings>): Promise<Respons
   return c.json({ ok: true });
 }
 
-export async function checkpointCallback(c: Context<AppBindings>): Promise<Response> {
-  const id = c.req.param("id") as string;
-  const body = await c.req.json<Record<string, any>>();
-  if (!body.checkpoint) throw badRequest("Missing checkpoint field");
-
-  const artifactId = body.artifact_id ?? null;
-  const fileUrl = body.file_url ?? null;
-
-  queries.updateJobCheckpoint(c.var.db, id, body.checkpoint, artifactId, fileUrl);
-
-  // Log event — FK guard: job may not exist
-  if (!safeInsertEvent(c, c.var.db, id, body.checkpoint, "checkpoint", `Checkpoint saved: ${body.checkpoint}`, null)) {
-    return c.json({ error: "Job not found" }, 404);
-  }
-
-  // Broadcast
-  c.var.eventBus.send({ type: "job_checkpoint", data: { job_id: id, checkpoint: body.checkpoint } });
-
-  // Telegram notification
-  const job = queries.getJob(c.var.db, id);
-  const title = job?.title ?? "Unknown";
-  sendNotification(c, { type: "CheckpointSaved", title, phase: body.checkpoint });
-
-  return c.json({ ok: true });
-}
 
 export async function completeCallback(c: Context<AppBindings>): Promise<Response> {
   const id = c.req.param("id") as string;

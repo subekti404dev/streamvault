@@ -98,8 +98,6 @@ async function getDiscordChannel(
 async function triggerPipeline(
   c: Context<AppBindings>,
   job: Job,
-  skipDownload: boolean,
-  skipTranscode: boolean,
 ): Promise<string> {
   const ghToken = getSettingOrEnv(c, "gh_token");
   if (!ghToken) throw badRequest("GitHub token not configured");
@@ -127,10 +125,6 @@ async function triggerPipeline(
       callback_token: callbackToken,
       discord_bot_token: discordToken,
       discord_channel_id: discordChannel,
-      skip_download: String(skipDownload),
-      skip_transcode: String(skipTranscode),
-      checkpoint_dl_url: job.ghArtifactDlUrl ?? "",
-      checkpoint_tc_url: job.ghArtifactTcUrl ?? "",
     },
   };
 

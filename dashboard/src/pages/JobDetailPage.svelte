@@ -54,7 +54,7 @@
       loading = false;
     }
     const unsub = onSseEvent((event) => {
-      if (event.job_id === id && ['job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_checkpoint', 'job_started', 'job_created'].includes(event.type as string)) {
+      if (event.job_id === id && ['job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_started', 'job_created'].includes(event.type as string)) {
         loadJob();
       }
     });
@@ -67,8 +67,8 @@
   }
 
   const activeStatuses = new Set([
-    'processing', 'downloading', 'checkpoint_download',
-    'transcoding', 'checkpoint_transcode', 'uploading',
+    'processing', 'downloading',
+    'transcoding', 'uploading',
   ]);
 
   function isActiveStatus(status: string): boolean {
@@ -168,25 +168,8 @@
         <h3>Error Details</h3>
         <p>{job.error_message || 'Unknown error'}</p>
         <div class="mt-3">
-          {#if job.last_checkpoint}
-            <p class="text-muted" style="font-size:0.8rem;">
-              Last checkpoint: {job.last_checkpoint}
-            </p>
-            <p class="text-muted mt-1" style="font-size:0.8rem;">
-              Resume from checkpoint -&gt;
-              {#if job.last_checkpoint === 'transcode'}
-                Skip download &amp; transcode, langsung upload
-              {:else}
-                Skip download, lanjut transcode
-              {/if}
-            </p>
-          {:else}
-            <p class="text-muted" style="font-size:0.8rem;">
-              No checkpoint available — will process from start.
-            </p>
-          {/if}
           <button class="btn btn-success mt-2" onclick={retryJob}>
-            Resume from Checkpoint
+            Resume
           </button>
           <button class="btn btn-danger ml-2" onclick={deleteJob}>Remove</button>
         </div>
@@ -235,7 +218,6 @@
         <div><span class="detail-label">Created</span><span>{formatTime(job.created_at)}</span></div>
         <div><span class="detail-label">Started</span><span>{formatTime(job.started_at)}</span></div>
         <div><span class="detail-label">Completed</span><span>{formatTime(job.completed_at)}</span></div>
-        <div><span class="detail-label">Checkpoint</span><span>{job.last_checkpoint || 'None'}</span></div>
         {#if job.file_size_bytes}
           <div><span class="detail-label">Size</span><span>{(job.file_size_bytes / 1e9).toFixed(2)} GB</span></div>
         {/if}

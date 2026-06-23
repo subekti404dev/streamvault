@@ -265,31 +265,6 @@ export function updateJobProgress(db: DrizzleDB, id: string, phase: string, pct:
   db.update(jobs).set(update).where(eq(jobs.id, id)).run();
 }
 
-export function updateJobCheckpoint(
-  db: DrizzleDB,
-  id: string,
-  checkpoint: string,
-  artifactId: string | null,
-  fileUrl: string | null,
-): void {
-  if (checkpoint !== "download" && checkpoint !== "transcode") return;
-
-  const update: Record<string, unknown> = {
-    lastCheckpoint: checkpoint,
-    status: `checkpoint_${checkpoint}`,
-    updatedAt: sql`(datetime('now'))`,
-  };
-
-  if (checkpoint === "download") {
-    update.ghArtifactIdDl = artifactId;
-    update.ghArtifactDlUrl = fileUrl;
-  } else {
-    update.ghArtifactIdTc = artifactId;
-    update.ghArtifactTcUrl = fileUrl;
-  }
-
-  db.update(jobs).set(update).where(eq(jobs.id, id)).run();
-}
 
 export function updateJobGhRun(db: DrizzleDB, id: string, runId: string): void {
   db.update(jobs).set({

@@ -13,8 +13,6 @@ export interface Job {
   progress_pct?: number | null;
   transcode_pct?: number | null;
   upload_pct?: number | null;
-  last_checkpoint?: string | null;
-  gh_run_id?: string | null;
   video_resolution?: string | null;
   duration_seconds?: number | null;
   error_message?: string | null;
@@ -26,8 +24,7 @@ export interface Job {
 
 export type JobStatus =
   | 'queued' | 'processing' | 'downloading'
-  | 'checkpoint_download' | 'transcoding'
-  | 'checkpoint_transcode' | 'uploading'
+  | 'transcoding' | 'uploading'
   | 'completed' | 'failed';
 
 export interface JobEvent {
@@ -164,9 +161,7 @@ export function statusLabel(status: JobStatus): string {
     queued: 'Queued',
     processing: 'Starting',
     downloading: 'Downloading',
-    checkpoint_download: 'Downloaded',
     transcoding: 'Transcoding',
-    checkpoint_transcode: 'Transcoded',
     uploading: 'Uploading',
     completed: 'Completed',
     failed: 'Failed',
@@ -179,9 +174,7 @@ export function statusColor(status: JobStatus): string {
     queued: '#6366f1',
     processing: '#f59e0b',
     downloading: '#3b82f6',
-    checkpoint_download: '#10b981',
     transcoding: '#8b5cf6',
-    checkpoint_transcode: '#10b981',
     uploading: '#f97316',
     completed: '#10b981',
     failed: '#ef4444',

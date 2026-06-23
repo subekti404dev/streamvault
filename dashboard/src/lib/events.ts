@@ -35,7 +35,7 @@ export function connectSSE() {
   };
 
   const eventTypes = [
-    'job_created', 'job_started', 'job_progress', 'job_checkpoint',
+    'job_created', 'job_started', 'job_progress',
     'job_completed', 'job_failed', 'job_retried', 'job_removed', 'queue_update',
   ];
 

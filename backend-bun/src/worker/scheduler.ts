@@ -18,9 +18,7 @@ import { sendNotification } from "../notifications/telegram";
 const ACTIVE_STATUSES = [
   "processing",
   "downloading",
-  "checkpoint_download",
   "transcoding",
-  "checkpoint_transcode",
   "uploading",
 ];
 
@@ -93,7 +91,7 @@ async function tick(
     }).catch(() => {});
 
     const ctx = buildFakeContext(db, config, eventBus);
-    triggerPipeline(ctx, job, false, false).catch((e: unknown) => {
+    triggerPipeline(ctx, job).catch((e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
       updateJobFailed(db, job.id, `Trigger failed: ${msg}`);
     });

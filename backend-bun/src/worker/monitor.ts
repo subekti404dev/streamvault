@@ -9,9 +9,7 @@ import {
 const ACTIVE_STATUSES = [
   "processing",
   "downloading",
-  "checkpoint_download",
   "transcoding",
-  "checkpoint_transcode",
   "uploading",
 ];
 
