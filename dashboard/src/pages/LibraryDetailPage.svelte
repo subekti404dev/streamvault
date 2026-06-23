@@ -59,11 +59,9 @@
 
   function getSeasons(): number[] {
     if (!detail) return [];
-    const seasons = [...new Set(detail.jobs
-      .map(j => j.season)
-      .filter((s): s is number => s != null)
-    )].sort((a, b) => a - b);
-    return seasons;
+    const fromJobs = detail.jobs.map(j => j.season).filter((s): s is number => s != null);
+    const fromVideos = seriesVideos.map(v => v.season).filter((s): s is number => s != null);
+    return [...new Set([...fromJobs, ...fromVideos])].sort((a, b) => a - b);
   }
 
   function getEpisodesForSeason(season: number): LibraryJob[] {
