@@ -152,7 +152,7 @@ jobs:
             -i "$INPUT_FILE" \
             -c copy \
             -hls_time 6 \
-            -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
+            -hls_segment_size 24000000 \
             -hls_playlist_type vod \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
           FFMPEG_PID=$!
