@@ -150,18 +150,16 @@ jobs:
           LOG_FILE="/tmp/ffmpeg_transcode.log"
           TOTAL_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$INPUT_FILE" 2>/dev/null | cut -d. -f1)
           TOTAL_DURATION=${TOTAL_DURATION:-600}
-          echo "Duration: ${TOTAL_DURATION}s"
-
-          # Re-encode with forced keyframes so hls_segment_size can split properly
+          # Re-encode — force keyframes every 1s so segment cap splits at ~1MB
           mkdir -p "$HLS_DIR"
           rm -f "$LOG_FILE"
           ffmpeg -y \
             -i "$INPUT_FILE" \
-            -c:v libx264 -profile:v high -pix_fmt yuv420p -preset ultrafast -crf 22 \
+            -c:v libx264 -profile:v high -pix_fmt yuv420p -preset veryfast -crf 28 \
             -c:a aac -ac 2 -b:a 128k \
             -vf "scale=-2:$TARGET_HEIGHT" \
-            -force_key_frames "expr:gte(t,n_forced*3)" \
-            -hls_time 3 \
+            -force_key_frames "expr:gte(t,n_forced*1)" \
+            -hls_time 1 \
             -hls_segment_size 1000000 \
             -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
