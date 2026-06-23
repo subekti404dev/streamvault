@@ -138,12 +138,26 @@ jobs:
         id: detect
         shell: bash
         run: |
-          INPUT_FILE=$(find ./downloads -type f -size +100M \
-            \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
-            -not -name "*.log" -not -name "*.torrent" \
-            -exec ls -1S {} + 2>/dev/null | head -1)
+          # First: use exact path from monitor.sh if it saved one
+          if [ -f ./downloads/.selected_path ]; then
+            INPUT_FILE=$(cat ./downloads/.selected_path)
+            if [ -f "$INPUT_FILE" ]; then
+              echo "✓ Using selected path from monitor.sh: $INPUT_FILE"
+            else
+              echo "⚠ .selected_path exists but file not found: $INPUT_FILE"
+              INPUT_FILE=""
+            fi
+          fi
 
-          # Fallback: no large file yet, try any video (might be single file < 100M)
+          # Fallback: find largest video file
+          if [ -z "$INPUT_FILE" ]; then
+            INPUT_FILE=$(find ./downloads -type f -size +100M \
+              \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \
+              -not -name "*.log" -not -name "*.torrent" \
+              -exec ls -1S {} + 2>/dev/null | head -1)
+          fi
+
+          # Final fallback: any video (might be single file < 100M)
           if [ -z "$INPUT_FILE" ]; then
             INPUT_FILE=$(find ./downloads -type f \
               \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) \

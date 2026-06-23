@@ -152,6 +152,10 @@ else
           echo "  Target file found at index $TARGET, selecting..."
           echo "  Detected file list:"
           echo "$FILE_OUT" | grep -E '^[[:space:]]*[0-9]+' | head -10
+          # Extract file path from match line and save for detect step
+          SELECTED_PATH=$(echo "$MATCH_LINE" | awk '{$1=$2=$3=$4=$5=$6=""; sub(/^  */,""); print}')
+          echo "./downloads/$SELECTED_PATH" > ./downloads/.selected_path
+          echo "  Saved path to .selected_path: ./downloads/$SELECTED_PATH"
           transmission-remote localhost:9092 -t "$TID" --stop > /dev/null 2>&1 || true
           sleep 1
           transmission-remote localhost:9092 -t "$TID" -G all > /dev/null 2>&1 || true
