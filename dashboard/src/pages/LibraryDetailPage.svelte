@@ -49,12 +49,10 @@
   }
 
   function toggleSeason(season: number) {
-    if (expandedSeasons.has(season)) {
-      expandedSeasons.delete(season);
-    } else {
-      expandedSeasons.add(season);
-    }
-    expandedSeasons = expandedSeasons;
+    const next = new Set(expandedSeasons);
+    if (next.has(season)) next.delete(season);
+    else next.add(season);
+    expandedSeasons = next;
   }
 
   function getSeasons(): number[] {
