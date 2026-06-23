@@ -98,7 +98,7 @@ else
     echo "  File count from --info-files header: $FILE_COUNT"
 
     # ≤1 confirmed file → single-file torrent, skip selection (download all)
-    if [ "$FILE_COUNT" -le 1 ]; then
+    if [ "$FILE_COUNT" -eq 1 ]; then
       echo "  Single-file torrent — downloading entire torrent"
     else
       # FILE_COUNT=0 means metadata not yet loaded — enter matching loop
