@@ -138,6 +138,13 @@ jobs:
         run: |
           INPUT_FILE="${{ steps.detect.outputs.input_file }}"
           SOURCE_HEIGHT=${{ steps.detect.outputs.source_height }}
+          # Keep original resolution, cap at 1080p
+          if [ "$SOURCE_HEIGHT" -ge 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
+            TARGET_HEIGHT=1080
+          else
+            TARGET_HEIGHT=$SOURCE_HEIGHT
+          fi
+          echo "Target: ${TARGET_HEIGHT}p"
 
           HLS_DIR="./hls"
           LOG_FILE="/tmp/ffmpeg_transcode.log"
@@ -145,14 +152,18 @@ jobs:
           TOTAL_DURATION=${TOTAL_DURATION:-600}
           echo "Duration: ${TOTAL_DURATION}s"
 
-          # Stream copy — no re-encode, original quality & resolution
+          # Re-encode with forced keyframes so hls_segment_size can split properly
           mkdir -p "$HLS_DIR"
           rm -f "$LOG_FILE"
           ffmpeg -y \
             -i "$INPUT_FILE" \
-            -c copy \
-            -hls_time 6 \
+            -c:v libx264 -profile:v high -pix_fmt yuv420p -preset ultrafast -crf 22 \
+            -c:a aac -ac 2 -b:a 128k \
+            -vf "scale=-2:$TARGET_HEIGHT" \
+            -force_key_frames "expr:gte(t,n_forced*3)" \
+            -hls_time 3 \
             -hls_segment_size 1000000 \
+            -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
           FFMPEG_PID=$!
