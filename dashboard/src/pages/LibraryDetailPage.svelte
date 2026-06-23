@@ -102,6 +102,10 @@
     if (!confirm('Are you sure you want to delete this?')) return;
     try {
       await api.deleteJob(jobId);
+      if (detail?.media_type === 'movie') {
+        window.location.hash = '#library';
+        return;
+      }
       detail = await api.getLibraryItem(id);
     } catch (e: any) {
       addToast(`Delete failed: ${e.message}`, 'error');
