@@ -79,6 +79,16 @@ app.get("/meta/:type/:imdbId", metaHandler);
 app.get("/stream/:type/:id", streamHandler);
 app.get("/proxy/hls/:jobId/master.m3u8", playlistHandler);
 app.get("/proxy/hls/:jobId/:filename", chunkHandler);
+app.options("/proxy/hls/:jobId/:filename", (c) => {
+  return new Response(null, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Range",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+});
 
 // Static file serving — Svelte dashboard (SPA fallback)
 // serveStatic returns 404 on missing files and does NOT call next(),

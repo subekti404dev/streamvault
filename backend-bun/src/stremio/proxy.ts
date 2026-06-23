@@ -5,24 +5,6 @@ import { hlsChunks } from "../db/schema";
 import { notFound } from "../error";
 import * as queries from "../db/queries";
 
-function resolveBaseUrl(c: Context<AppBindings>): string {
-  const host = c.req.header("x-forwarded-host");
-  const proto = c.req.header("x-forwarded-proto");
-  if (host && proto) {
-    return `${proto}://${host}`;
-  }
-
-  const requestHost = c.req.header("host");
-  if (requestHost) {
-    const scheme = proto === "https" ? "https" : "http";
-    return `${scheme}://${requestHost}`;
-  }
-
-  const configUrl = c.var.config.publicBaseUrl;
-  if (configUrl) return configUrl;
-
-  return "http://localhost:8080";
-}
 export async function playlistHandler(c: Context<AppBindings>) {
   const jobId = c.req.param("jobId")!;
   const allChunks = queries.getHlsChunks(c.var.db, jobId);
@@ -32,7 +14,6 @@ export async function playlistHandler(c: Context<AppBindings>) {
     throw notFound("No HLS segments found");
   }
 
-  const baseUrl = resolveBaseUrl(c);
   const targetDuration = Math.max(
     ...tsChunks.map((ch) => Math.ceil(ch.durationSeconds || 0)),
     1,
@@ -49,8 +30,7 @@ export async function playlistHandler(c: Context<AppBindings>) {
 
   for (const chunk of tsChunks) {
     const duration = chunk.durationSeconds || 6;
-    lines.push(`#EXTINF:${duration.toFixed(6)},`);
-    lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}`);
+    lines.push(`/proxy/hls/${jobId}/${chunk.filename}`);
   }
   lines.push("#EXT-X-ENDLIST");
 
