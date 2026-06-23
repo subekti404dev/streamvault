@@ -141,35 +141,17 @@ jobs:
 
           HLS_DIR="./hls"
           LOG_FILE="/tmp/ffmpeg_transcode.log"
-          mkdir -p "$HLS_DIR"
-
-          # Determine target resolution — target 1080p, keep original if lower
-          if [ "$SOURCE_HEIGHT" -ge 1080 ] || [ "$SOURCE_HEIGHT" -eq 0 ]; then
-            TARGET_HEIGHT=1080
-          else
-            TARGET_HEIGHT=$SOURCE_HEIGHT
-          fi
-          echo "Target: ${TARGET_HEIGHT}p"
-
-          # Get total duration
           TOTAL_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$INPUT_FILE" 2>/dev/null | cut -d. -f1)
           TOTAL_DURATION=${TOTAL_DURATION:-600}
           echo "Duration: ${TOTAL_DURATION}s"
 
-          # Initial progress
-          chmod +x .github/scripts/*.sh
-          .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
-            '{"phase":"transcode","progress_pct":0}'
-
-          # Start ffmpeg in background
+          # Stream copy — no re-encode, original quality & resolution
+          mkdir -p "$HLS_DIR"
           rm -f "$LOG_FILE"
           ffmpeg -y \
             -i "$INPUT_FILE" \
-            -c:v libx264 -profile:v high -pix_fmt yuv420p -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 5000k \
-            -c:a aac -ac 2 -b:a 128k \
-            -vf "scale=-2:$TARGET_HEIGHT" \
-            -force_key_frames "expr:eq(mod(n,72),0)" \
-            -hls_time 3 \
+            -c copy \
+            -hls_time 6 \
             -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
