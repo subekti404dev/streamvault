@@ -28,6 +28,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let inspectedFiles = $state<{index: number; name: string; size_bytes: number}[]>([]);
   let selectedFileIdx = $state(0);
   let torrentName = $state('');
+  let inspectingTorrent = $state<string | null>(null);
+  let inspectedTorrents = $state<Record<string, { files: {index: number; name: string; size_bytes: number}[]; name: string; selectedIdx: number }>>({});
   let seriesMeta = $state<StremioMetaDetail | null>(null);
   const movieResults = $derived(
     catalogResults.filter(item => item.type === 'movie')
@@ -197,13 +199,25 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         poster_url: result?.meta.poster || selectedItem?.poster,
         magnet_uri: torrent.magnet_uri,
         infohash: torrent.infohash,
-        torrent_name: torrent.filename ?? "",
-        file_idx: torrent.file_idx,
+        torrent_name: inspectedTorrents[torrent.infohash]?.name || (torrent.filename ?? ""),
+        file_idx: inspectedTorrents[torrent.infohash]?.selectedIdx ?? torrent.file_idx,
         file_size_bytes: torrent.size_bytes,
       });
       addToast(`Added to queue: ${result?.meta.title || selectedItem?.name}`, 'success');
     } catch (e: any) {
       addToast(`Failed: ${e.message}`, 'error');
+    }
+  }
+
+  async function inspectTorrentFiles(infohash: string) {
+    inspectingTorrent = infohash;
+    try {
+      const resp = await api.inspectTorrent(infohash);
+      inspectedTorrents = { ...inspectedTorrents, [infohash]: { files: resp.files, name: resp.name, selectedIdx: 0 } };
+    } catch (e: any) {
+      addToast(`Inspect failed: ${e.message}`, 'error');
+    } finally {
+      inspectingTorrent = null;
     }
   }
 
@@ -499,10 +513,40 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
                 <span class="torrent-title">{torrent.title}</span>
                 <span class="torrent-size">{formatBytes(torrent.size_bytes)}</span>
               </div>
-              <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
-                Add to Queue
-              </button>
+              <div class="torrent-actions">
+                <button class="btn btn-secondary btn-sm" onclick={() => inspectTorrentFiles(torrent.infohash)} disabled={inspectingTorrent === torrent.infohash}>
+                  {inspectingTorrent === torrent.infohash ? '...' : 'Files'}
+                </button>
+                <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
+                  Add to Queue
+                </button>
+              </div>
             </div>
+            {#if inspectedTorrents[torrent.infohash]?.files}
+              <div class="file-list torrent-file-list">
+                <h4 class="files-heading">
+                  {inspectedTorrents[torrent.infohash].files.length} file(s) in <span class="files-torrent-name">{inspectedTorrents[torrent.infohash].name}</span>
+                </h4>
+                {#each inspectedTorrents[torrent.infohash].files as file}
+                  <button
+                    type="button"
+                    class="file-option {inspectedTorrents[torrent.infohash].selectedIdx === file.index ? 'selected' : ''}"
+                    onclick={() => {
+                      inspectedTorrents = {
+                        ...inspectedTorrents,
+                        [torrent.infohash]: { ...inspectedTorrents[torrent.infohash], selectedIdx: file.index }
+                      };
+                    }}
+                  >
+                    <span class="file-radio {inspectedTorrents[torrent.infohash].selectedIdx === file.index ? 'active' : ''}"></span>
+                    <div class="file-info">
+                      <span class="file-name">{file.name}</span>
+                      <span class="file-size">{formatBytes(file.size_bytes)}</span>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -735,6 +779,22 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+  }
+
+  .torrent-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .torrent-file-list {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
   }
 
   .torrent-list {
