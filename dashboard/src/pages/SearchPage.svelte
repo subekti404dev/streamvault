@@ -209,11 +209,17 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     }
   }
 
-  async function inspectTorrentFiles(infohash: string) {
+  async function inspectTorrentFiles(infohash: string, torrent: Torrent) {
     inspectingTorrent = infohash;
     try {
       const resp = await api.inspectTorrent(infohash);
-      inspectedTorrents = { ...inspectedTorrents, [infohash]: { files: resp.files, name: resp.name, selectedIdx: 0 } };
+      // Match Torrentio's file_idx or filename to pre-select the right file
+      let matchedIdx = torrent.file_idx;
+      if (torrent.filename) {
+        const byName = resp.files.findIndex(f => f.name.endsWith(torrent.filename) || torrent.filename.endsWith(f.name));
+        if (byName >= 0) matchedIdx = resp.files[byName].index;
+      }
+      inspectedTorrents = { ...inspectedTorrents, [infohash]: { files: resp.files, name: resp.name, selectedIdx: matchedIdx } };
     } catch (e: any) {
       addToast(`Inspect failed: ${e.message}`, 'error');
     } finally {
@@ -514,7 +520,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
                 <span class="torrent-size">{formatBytes(torrent.size_bytes)}</span>
               </div>
               <div class="torrent-actions">
-                <button class="btn btn-secondary btn-sm" onclick={() => inspectTorrentFiles(torrent.infohash)} disabled={inspectingTorrent === torrent.infohash}>
+                <button class="btn btn-secondary btn-sm" onclick={() => inspectTorrentFiles(torrent.infohash, torrent)} disabled={inspectingTorrent === torrent.infohash}>
                   {inspectingTorrent === torrent.infohash ? '...' : 'Files'}
                 </button>
                 <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
