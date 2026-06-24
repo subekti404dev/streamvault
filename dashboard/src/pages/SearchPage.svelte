@@ -219,7 +219,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
         const byName = resp.files.findIndex(f => f.name.endsWith(torrent.filename) || torrent.filename.endsWith(f.name));
         if (byName >= 0) matchedIdx = resp.files[byName].index;
       }
-      inspectedTorrents = { ...inspectedTorrents, [infohash]: { files: resp.files, name: resp.name, selectedIdx: matchedIdx } };
+      inspectedTorrents = { [infohash]: { files: resp.files, name: resp.name, selectedIdx: matchedIdx } };
     } catch (e: any) {
       addToast(`Inspect failed: ${e.message}`, 'error');
     } finally {
