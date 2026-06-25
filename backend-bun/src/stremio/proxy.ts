@@ -42,26 +42,22 @@ export async function playlistHandler(c: Context<AppBindings>) {
   }
 
   const baseUrl = resolveBaseUrl(c);
-  const MAX_SEGMENT_DURATION = 10;
-  const targetDuration = Math.min(
-    Math.max(
-      ...tsChunks.map((ch) => Math.ceil(ch.durationSeconds || 0)),
-      6,
-    ),
-    MAX_SEGMENT_DURATION,
-  );
+  // ponytail: hardcode TARGETDURATION=6 instead of computing from DB.
+  // Segments are ~1s (hls_time=1), but DB durations can be bogus
+  // (e.g. 1200s from ffmpeg parse bugs), inflating the estimate.
+  const TARGET_DURATION = 6;
 
   const lines: string[] = [
     "#EXTM3U",
     "#EXT-X-VERSION:3",
-    `#EXT-X-TARGETDURATION:${targetDuration}`,
+    `#EXT-X-TARGETDURATION:${TARGET_DURATION}`,
     "#EXT-X-MEDIA-SEQUENCE:0",
     "#EXT-X-PLAYLIST-TYPE:VOD",
   ];
 
   for (const chunk of tsChunks) {
-    // ponytail: clamp to prevent bogus durations (e.g. 1200s) from ffmpeg/parse bugs
-    const duration = Math.min(chunk.durationSeconds || 6, MAX_SEGMENT_DURATION);
+    // ponytail: clamp EXTINF to prevent bogus durations from parse bugs
+    const duration = Math.min(chunk.durationSeconds || 6, TARGET_DURATION);
     lines.push(`#EXTINF:${duration.toFixed(6)},`);
     lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}${qs}`);
   }
