@@ -43,14 +43,24 @@ export async function playlistHandler(c: Context<AppBindings>) {
 
   const baseUrl = resolveBaseUrl(c);
   const job = queries.getJob(c.var.db, jobId);
-  const totalDuration = job?.durationSeconds ?? 0;
-  const avgDuration = tsChunks.length > 0 && totalDuration > 0
-    ? totalDuration / tsChunks.length
-    : 1;
 
-  // Use per-chunk durations from DB (parsed from ffmpeg's real EXTINF).
-  // Fall back to avgDuration when chunk data is missing or bogus.
+  // Collect valid per-chunk durations from DB.
   // ponytail: skip absurd values (<=0, >30) — they're parse artifacts.
+  const chunkDurs: number[] = [];
+  for (const chunk of tsChunks) {
+    const raw = chunk.durationSeconds;
+    if (raw != null && raw > 0 && raw <= 30) {
+      chunkDurs.push(raw);
+    }
+  }
+
+  // Compute avg from valid chunks, fallback to job total if available
+  const sumValid = chunkDurs.reduce((s, d) => s + d, 0);
+  const validCount = chunkDurs.length;
+  const avgFromChunks = validCount > 0 ? sumValid / validCount : 1;
+  const jobDur = job?.durationSeconds ?? 0;
+  const avgDuration = jobDur > 0 ? jobDur / tsChunks.length : avgFromChunks;
+
   let maxDur = avgDuration;
   const lines: string[] = [
     "#EXTM3U",
@@ -72,6 +82,11 @@ export async function playlistHandler(c: Context<AppBindings>) {
 
   lines.push("#EXT-X-ENDLIST");
 
+  // ponytail: estimate total from chunk data when job duration missing
+  const estimatedTotal = validCount > 0
+    ? sumValid + avgDuration * (tsChunks.length - validCount)
+    : avgDuration * tsChunks.length;
+
   return new Response(lines.join("\n") + "\n", {
     status: 200,
     headers: {
@@ -79,9 +94,10 @@ export async function playlistHandler(c: Context<AppBindings>) {
       "Cache-Control": "no-store, must-revalidate",
       "Access-Control-Allow-Origin": "*",
       "X-Debug-Chunks": String(tsChunks.length),
+      "X-Debug-ValidDurs": String(validCount),
       "X-Debug-AvgDuration": avgDuration.toFixed(3),
       "X-Debug-MaxDuration": maxDur.toFixed(3),
-      "X-Debug-JobDuration": String(totalDuration),
+      "X-Debug-EstTotal": estimatedTotal.toFixed(1),
     },
   });
 }
