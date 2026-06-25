@@ -63,7 +63,9 @@
 
   function formatTime(t: string | null | undefined): string {
     if (!t) return '-';
-    return new Date(t).toLocaleString();
+    // SQLite datetime('now') stores as "YYYY-MM-DD HH:MM:SS" without TZ marker.
+    // JS parses this as local — append 'Z' to force UTC, toLocaleString converts to browser TZ.
+    return new Date(t + 'Z').toLocaleString();
   }
 
   const activeStatuses = new Set([

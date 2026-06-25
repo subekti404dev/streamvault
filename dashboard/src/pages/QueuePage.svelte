@@ -119,7 +119,7 @@
             </div>
           </div>
           <div class="job-footer">
-            <span class="text-muted">Added {job.created_at ? new Date(job.created_at).toLocaleString() : ''}</span>
+            <span class="text-muted">Added {job.created_at ? new Date(job.created_at + 'Z').toLocaleString() : ''}</span>
             <div style="display:flex; gap:0.5rem;">
               <a href="#job/{job.id}" class="btn btn-sm">Details</a>
               <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Cancel</button>
