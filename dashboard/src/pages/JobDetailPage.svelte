@@ -3,7 +3,14 @@
   import { onSseEvent } from '../lib/events';
   import type { Job, JobEvent } from '../lib/types';
   import { statusLabel, statusColor, formatDuration } from '../lib/types';
+  import { getToken } from '../lib/api';
 
+
+  function hlsUrl(jobId: string): string {
+    const token = getToken();
+    const base = `${window.location.origin}/proxy/hls/${jobId}/master.m3u8`;
+    return token ? `${base}?token=${token}` : base;
+  }
   let { id, addToast }: {
     id: string;
     addToast: (msg: string, type?: string) => void;
@@ -148,11 +155,11 @@
       <div class="card stream-card">
         <h3>Stream URL</h3>
         <div class="stream-url-box">
-          <code>{window.location.origin}/proxy/hls/{job.id}/master.m3u8</code>
+          <code>{hlsUrl(job.id)}</code>
           <button
             class="btn btn-sm btn-primary"
             onclick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/proxy/hls/${job!.id}/master.m3u8`);
+              navigator.clipboard.writeText(hlsUrl(job!.id));
               addToast('HLS URL copied!', 'success');
             }}
           >

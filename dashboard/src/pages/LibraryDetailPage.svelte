@@ -3,6 +3,13 @@
   import { api } from '../lib/api';
   import type { LibraryDetail, LibraryJob, StremioVideo } from '../lib/types';
   import { formatDuration } from '../lib/types';
+  import { getToken } from '../lib/api';
+
+  function hlsUrl(jobId: string): string {
+    const token = getToken();
+    const base = `/proxy/hls/${jobId}/master.m3u8`;
+    return token ? `${base}?token=${token}` : base;
+  }
 
   let { id, addToast }: {
     id: string;
@@ -146,7 +153,7 @@
 
     {#if detail.media_type === 'movie' && detail.jobs.length > 0}
       <div class="actions-card">
-        <a href="/proxy/hls/{detail!.jobs[0].id}/master.m3u8" target="_blank" class="btn btn-primary">
+        <a href={hlsUrl(detail!.jobs[0].id)} target="_blank" class="btn btn-primary">
           ▶ Play
         </a>
         <button class="btn btn-danger" onclick={() => deleteJob(detail!.jobs[0].id)}>
@@ -190,7 +197,7 @@
                     <div class="episode-actions">
                       {#if isEpisodeCompleted(season, video.episode ?? 0)}
                         {@const job = getEpisodeJob(season, video.episode ?? 0)}
-                        <a href="/proxy/hls/{job?.id}/master.m3u8" target="_blank" class="btn btn-xs btn-primary">▶</a>
+                        <a href={hlsUrl(job?.id)} target="_blank" class="btn btn-xs btn-primary">▶</a>
                         <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>
                           ✗
                         </button>
