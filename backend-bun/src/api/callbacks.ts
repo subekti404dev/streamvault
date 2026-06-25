@@ -76,7 +76,9 @@ export async function completeCallback(c: Context<AppBindings>): Promise<Respons
 
     // Telegram notification
     const title = job?.title ?? "Unknown";
-    sendNotification(c, { type: "JobCompleted", title, details: `${resolution}, ${duration}s duration` });
+    sendNotification(c, { type: "JobCompleted", title, details: `${resolution}, ${duration}s duration` }).catch(
+      (e) => console.error("[callback] telegram notification failed job=" + id + ":", e),
+    );
 
     // Clean up GHA run
     if (ghRunId) {

@@ -68,7 +68,11 @@ export const api = {
   },
 
   deleteJob: async (id: string): Promise<void> => {
-    await fetch(`${BASE}/queue/${id}`, { method: 'DELETE', headers: headers() });
+    const r = await fetch(`${BASE}/queue/${id}`, { method: 'DELETE', headers: headers() });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      throw new Error(err.error ?? `Delete failed: ${r.status}`);
+    }
   },
 
   getSettings: async (): Promise<AppSettings> => {
@@ -77,11 +81,15 @@ export const api = {
   },
 
   updateSettings: async (settings: AppSettings): Promise<void> => {
-    await fetch(`${BASE}/settings`, {
+    const r = await fetch(`${BASE}/settings`, {
       method: 'PUT',
       headers: headers(),
       body: JSON.stringify(settings),
     });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      throw new Error(err.error ?? `Save failed: ${r.status}`);
+    }
   },
 
   testTelegramNotification: async (): Promise<void> => {

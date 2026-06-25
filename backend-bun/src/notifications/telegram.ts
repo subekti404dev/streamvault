@@ -84,5 +84,5 @@ export async function sendNotification(
         parse_mode: "HTML",
       }),
     },
-  ).catch(() => {});
+  ).catch((e) => console.error("[telegram] notification failed:", e));
 }

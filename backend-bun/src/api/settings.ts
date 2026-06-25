@@ -65,6 +65,8 @@ export async function updateSettings(c: Context<AppBindings>) {
   }
 
   for (const [key, value] of Object.entries(body)) {
+    // auth_secret is internal — never allow writes from the settings API
+    if (key === "auth_secret") continue;
     // ponytail: detect masked values — frontend receives masked token from
     // getSettings, user saves without editing → masked value overwrites real token.
     // If value matches mask of stored value, keep stored value.

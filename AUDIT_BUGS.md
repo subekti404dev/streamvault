@@ -74,9 +74,7 @@ No `trap` registered for `SIGTERM`/`SIGINT`. If a workflow run is cancelled manu
 
 `magnet_uri` from user input is sent directly to the `workflow_dispatch` inputs without sanitization. Arbitrary text flows into GitHub Actions workflow variables. If the pipeline uses these inputs in shell commands (even indirectly), injection is possible.
 
-**Trigger:** POST to `/api/v1/queue` with crafted `magnet_uri`.
-
-**Fix:** Sanitize/validate magnet URI format before dispatching to GitHub.
+> **Fixed:** Validate `magnet_uri` starts with `magnet:?`. Custom URIs not matching this pattern are rejected. Auto-constructed URIs (from `buildMagnet`) always pass.
 
 ---
 
@@ -88,9 +86,7 @@ The `UPDATE /api/v1/settings` endpoint accepts a `settings` object and writes al
 - Change the auth secret to an empty string — all requests authorized
 - Set a different secret, locking out the current admin
 
-**Trigger:** PUT to `/api/v1/settings` with `{ auth_secret: "" }`.
-
-**Fix:** Blacklist `auth_secret` from settings API writes, or require confirmation.
+> **Fixed:** `updateSettings` skips `auth_secret` key — never written via settings API.
 
 ---
 
@@ -100,7 +96,7 @@ The `UPDATE /api/v1/settings` endpoint accepts a `settings` object and writes al
 
 `deleteJob()` and `updateSettings()` call `await fetch(...)` but never check `response.ok`. A 401, 500, or any non-2xx response is silently treated as success. The UI shows "removed"/"saved" while the operation actually failed.
 
-**Fix:** Use `handleResponse()` like other endpoints.
+> **Fixed:** Both functions now check `r.ok` and throw with error message on failure.
 
 ---
 
@@ -110,7 +106,7 @@ The `UPDATE /api/v1/settings` endpoint accepts a `settings` object and writes al
 
 `fetch()` call has `.catch(() => {})` — every failure is silent. No log, no retry, no alert. If the Telegram API is down or the bot token is invalid, the admin is never notified.
 
-**Fix:** Log the error at minimum; consider a retry or admin alert.
+> **Fixed:** `.catch()` now logs error to console via `console.error`.
 
 ---
 
@@ -120,9 +116,7 @@ The `UPDATE /api/v1/settings` endpoint accepts a `settings` object and writes al
 
 `sendNotification()` returns a `Promise<void>` but is called without `await` or `.catch()`. If the notification fails, the promise rejection is unhandled.
 
-**Trigger:** Job completes but Telegram notification fails.
-
-**Fix:** Add `.catch()` or `await`.
+> **Fixed:** Added `.catch()` with console.error log, matching pattern from Telegram file.
 
 ---
 
@@ -132,7 +126,7 @@ The `UPDATE /api/v1/settings` endpoint accepts a `settings` object and writes al
 
 `worker()` returns `() => clearInterval(timer)` for graceful shutdown, but `index.ts:104` discards the return value. The `setInterval` runs forever with no cleanup path.
 
-**Fix:** Store the cleanup function and call it on `process.on('SIGTERM', ...)`.
+> **Fixed (commit `1b04d29`):** `worker()` returns cleanup via `stopped` flag; `index.ts:110` stores `stopWorker` and calls it on `SIGTERM`.
 
 ---
 
@@ -147,9 +141,7 @@ for file in $FILES; do
 
 `$FILES` is unquoted — filenames containing whitespace are split, causing multiple iterations with invalid paths.
 
-**Fix:** Use `while IFS= read -r file` loop pattern, or set `IFS=$'\n'`.
-
----
+> **Fixed:** Replaced `for file in $FILES` with `while IFS= read -r file; do ... done <<< "$FILES"`.
 
 ## 🟡 Medium (11)
 

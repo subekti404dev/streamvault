@@ -63,7 +63,8 @@ FAILED_COUNT=0
 
 echo "Uploading $TOTAL files to Discord..."
 
-for file in $FILES; do
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
   CURRENT=$((CURRENT + 1))
   BASENAME=$(basename "$file")
 
@@ -131,7 +132,7 @@ for file in $FILES; do
 
   # Small delay between files to avoid rate limits
   sleep 0.05
-done
+done <<< "$FILES"
 
 echo "Upload complete: $CURRENT files processed, $FAILED_COUNT failed"
 if [ "$FAILED_COUNT" -gt 0 ]; then

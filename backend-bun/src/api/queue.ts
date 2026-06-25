@@ -33,6 +33,10 @@ export async function createJob(c: Context<AppBindings>) {
   // Auto-construct magnet URI with trackers if not provided (backward compat)
   const magnetUri = (body.magnet_uri as string)?.trim()
     || buildMagnet(infohash, title);
+  // ponytail: validate custom magnet URIs to prevent injection into CI pipelines
+  if (magnetUri && !magnetUri.startsWith("magnet:?")) {
+    throw badRequest("Invalid magnet URI format — must start with magnet:?");
+  }
 
   const jobId = crypto.randomUUID();
 
