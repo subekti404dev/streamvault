@@ -23,6 +23,8 @@
     { key: 'public_base_url', label: 'Public Base URL', type: 'text', section: 'Stremio' },
     { key: 'stremio_addon_id', label: 'Custom Addon ID', type: 'text', section: 'Stremio' },
     { key: 'stremio_addon_name', label: 'Custom Addon Name', type: 'text', section: 'Stremio' },
+    { key: 'stremio_movie_catalog_name', label: 'Movie Catalog Name', type: 'text', section: 'Stremio', placeholder: 'Movies' },
+    { key: 'stremio_series_catalog_name', label: 'Series Catalog Name', type: 'text', section: 'Stremio', placeholder: 'Series' },
     { key: 'stremio_metadata_url', label: 'Metadata Addon URL', type: 'text', section: 'Stremio', placeholder: 'https://aiometadatafortheweebs.midnightignite.me/stremio/43031d18-5fb4-40dc-9d73-cce34062e999' },
   ];
 

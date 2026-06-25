@@ -3,16 +3,19 @@ import type { AppBindings } from "../app";
 import * as queries from "../db/queries";
 
 export async function manifestHandler(c: Context<AppBindings>) {
+  const addonName = queries.getSetting(c.var.db, "stremio_addon_name") || "StreamVault";
+  const movieCatalog = queries.getSetting(c.var.db, "stremio_movie_catalog_name") || "Movies";
+  const seriesCatalog = queries.getSetting(c.var.db, "stremio_series_catalog_name") || "Series";
   return c.json({
     id: "com.streamvault.addon",
     version: "1.0.0",
-    name: "StreamVault",
+    name: addonName,
     description: "Personal media library powered by StreamVault",
     resources: ["catalog", "meta", "stream"],
     types: ["movie", "series"],
     catalogs: [
-      { type: "movie", id: "streamvault-movies", name: "Movies" },
-      { type: "series", id: "streamvault-series", name: "Series" },
+      { type: "movie", id: "streamvault-movies", name: movieCatalog },
+      { type: "series", id: "streamvault-series", name: seriesCatalog },
     ],
     idPrefixes: ["tt"],
     behaviorHints: { configurable: false, configurationRequired: false },
