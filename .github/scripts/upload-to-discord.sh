@@ -33,33 +33,28 @@ callback() {
     -d "$payload" \
     "${CALLBACK_URL}/api/v1/jobs/${JOB_ID}/${endpoint}" > /dev/null 2>&1 || true
 }
-
-# Parse durations from ffmpeg-generated .m3u8 playlist
-# Returns: associative array filename -> duration
-declare -A CHUNK_DURATIONS
-PLAYLIST_FILE="$HLS_DIR/master.m3u8"
-if [ -f "$PLAYLIST_FILE" ]; then
-  PENDING_DUR=""
-  while IFS= read -r line; do
-    TRIMMED=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-    if [[ "$TRIMMED" == \#EXTINF:* ]]; then
-      PENDING_DUR=$(echo "$TRIMMED" | sed 's/#EXTINF://' | cut -d',' -f1)
-    elif [[ "$TRIMMED" == *.ts ]]; then
-      BASENAME=$(basename "$TRIMMED")
-      if [ -n "$PENDING_DUR" ]; then
-        CHUNK_DURATIONS["$BASENAME"]="$PENDING_DUR"
-      fi
-      PENDING_DUR=""
-    fi
-  done < "$PLAYLIST_FILE"
-  echo "Parsed ${#CHUNK_DURATIONS[@]} chunk durations from playlist"
-fi
-
 # Collect .ts files sorted
 FILES=$(find "$HLS_DIR" -maxdepth 1 -name "*.ts" | sort)
 TOTAL=$(echo "$FILES" | wc -l | tr -d ' ')
+
+# Parse durations from actual .ts files using ffprobe (m3u8 EXTINF is
+# unreliable when -hls_segment_size overrides -hls_time).
+declare -A CHUNK_DURATIONS
+echo "Probing chunk durations with ffprobe..."
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  BASENAME=$(basename "$file")
+  DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$file" 2>/dev/null || echo "0")
+  # ponytail: skip absurd values — ffprobe should always succeed
+  if [ -n "$DUR" ] && [ "$DUR" != "0" ] && [ "$(echo "$DUR > 0" | bc -l 2>/dev/null)" = "1" ]; then
+    CHUNK_DURATIONS["$BASENAME"]="$DUR"
+  fi
+done <<< "$FILES"
+echo "Probed ${#CHUNK_DURATIONS[@]} chunk durations from files"
+
 CURRENT=0
 FAILED_COUNT=0
+
 
 echo "Uploading $TOTAL files to Discord..."
 
