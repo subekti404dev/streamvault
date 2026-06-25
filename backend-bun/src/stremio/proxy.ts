@@ -72,8 +72,11 @@ export async function playlistHandler(c: Context<AppBindings>) {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.apple.mpegurl",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-store, must-revalidate",
       "Access-Control-Allow-Origin": "*",
+      "X-Debug-Chunks": String(tsChunks.length),
+      "X-Debug-SegDuration": segDuration.toFixed(3),
+      "X-Debug-JobDuration": String(totalDuration),
     },
   });
 }
