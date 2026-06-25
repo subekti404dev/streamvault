@@ -155,18 +155,22 @@
       </div>
     </div>
     {#if detail.media_type === 'movie' && detail.jobs.length > 0}
-      <div class="actions-card">
-        <h3>Streams</h3>
-        {#each detail.jobs as job, i}
-          <div class="stream-item">
-            <a href={hlsUrl(job.id)} target="_blank" class="btn btn-primary">
-              ▶ Play {job.torrent_name ?? job.video_resolution ?? `Quality ${i + 1}`}
-            </a>
-            <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>
-              ✗ Delete
-            </button>
-          </div>
-        {/each}
+      <div class="season-section" style="margin-bottom:1.5rem">
+        <div class="season-header">
+          <span class="season-title">Streams</span>
+        </div>
+        <div class="episodes-list">
+          {#each detail.jobs as job, i}
+            <div class="episode-row">
+              <span class="episode-badge">{job.video_resolution ?? `Q${i + 1}`}</span>
+              <span class="episode-title">{job.torrent_name ?? 'Unknown'}</span>
+              <div class="episode-actions">
+                <a href={hlsUrl(job.id)} target="_blank" class="btn btn-xs btn-primary">▶ Play</a>
+                <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job.id)}>✗</button>
+              </div>
+            </div>
+          {/each}
+        </div>
       </div>
     {/if}
 
@@ -206,7 +210,7 @@
                     <div class="episode-actions">
                       {#if isEpisodeCompleted(season, video.episode ?? 0)}
                         {#each getAllEpisodeJobs(season, video.episode ?? 0) as epJob}
-                          <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? epJob.video_resolution ?? ''}>{epJob.torrent_name ?? epJob.video_resolution ?? '▶'}</a>
+                          <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? epJob.video_resolution ?? ''}>▶</a>
                           <button class="btn btn-xs btn-danger" onclick={() => deleteJob(epJob.id)}>✗</button>
                         {/each}
                       {:else}
@@ -257,11 +261,6 @@
   .detail-info h1 { margin: 0 0 0.5rem 0; }
   .meta-badges { display: flex; gap: 0.5rem; }
 
-  .actions-card {
-    display: flex; gap: 0.75rem; padding: 1rem;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); margin-bottom: 1.5rem;
-  }
 
   .seasons-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
