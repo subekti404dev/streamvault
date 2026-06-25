@@ -42,10 +42,17 @@ export async function playlistHandler(c: Context<AppBindings>) {
   }
 
   const baseUrl = resolveBaseUrl(c);
-  // ponytail: hardcode TARGETDURATION=6 instead of computing from DB.
-  // Segments are ~1s (hls_time=1), but DB durations can be bogus
-  // (e.g. 1200s from ffmpeg parse bugs), inflating the estimate.
-  const TARGET_DURATION = 6;
+  const job = queries.getJob(c.var.db, jobId);
+  const totalDuration = job?.durationSeconds ?? 0;
+
+  // ponytail: compute segment duration from job total instead of DB chunks.
+  // DB chunk durations can be bogus (parse bugs, missing callbacks,
+  // ffmpeg EXTINF weirdness). The job's duration_seconds from ffmpeg
+  // is authoritative.
+  const segDuration = tsChunks.length > 0 && totalDuration > 0
+    ? totalDuration / tsChunks.length
+    : 1;
+  const TARGET_DURATION = Math.max(Math.ceil(segDuration), 1);
 
   const lines: string[] = [
     "#EXTM3U",
@@ -56,9 +63,7 @@ export async function playlistHandler(c: Context<AppBindings>) {
   ];
 
   for (const chunk of tsChunks) {
-    // ponytail: clamp EXTINF to prevent bogus durations from parse bugs
-    const duration = Math.min(chunk.durationSeconds || 6, TARGET_DURATION);
-    lines.push(`#EXTINF:${duration.toFixed(6)},`);
+    lines.push(`#EXTINF:${segDuration.toFixed(6)},`);
     lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}${qs}`);
   }
   lines.push("#EXT-X-ENDLIST");
