@@ -75,6 +75,10 @@
       .filter(j => j.season === season)
       .sort((a, b) => (a.episode ?? 0) - (b.episode ?? 0));
   }
+  function getAllEpisodeJobs(season: number, episode: number): LibraryJob[] {
+    if (!detail) return [];
+    return detail.jobs.filter(j => j.season === season && j.episode === episode);
+  }
 
   function getVideosForSeason(season: number): StremioVideo[] {
     return seriesVideos
@@ -150,15 +154,19 @@
         </div>
       </div>
     </div>
-
     {#if detail.media_type === 'movie' && detail.jobs.length > 0}
       <div class="actions-card">
-        <a href={hlsUrl(detail!.jobs[0].id)} target="_blank" class="btn btn-primary">
-          ▶ Play
-        </a>
-        <button class="btn btn-danger" onclick={() => deleteJob(detail!.jobs[0].id)}>
-          ✗ Delete
-        </button>
+        <h3>Streams</h3>
+        {#each detail.jobs as job, i}
+          <div class="stream-item">
+            <a href={hlsUrl(job.id)} target="_blank" class="btn btn-primary">
+              ▶ Play {job.video_resolution ?? `Quality ${i + 1}`}
+            </a>
+            <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>
+              ✗ Delete
+            </button>
+          </div>
+        {/each}
       </div>
     {/if}
 
