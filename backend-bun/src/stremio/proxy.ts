@@ -44,28 +44,32 @@ export async function playlistHandler(c: Context<AppBindings>) {
   const baseUrl = resolveBaseUrl(c);
   const job = queries.getJob(c.var.db, jobId);
   const totalDuration = job?.durationSeconds ?? 0;
-
-  // ponytail: compute segment duration from job total instead of DB chunks.
-  // DB chunk durations can be bogus (parse bugs, missing callbacks,
-  // ffmpeg EXTINF weirdness). The job's duration_seconds from ffmpeg
-  // is authoritative.
-  const segDuration = tsChunks.length > 0 && totalDuration > 0
+  const avgDuration = tsChunks.length > 0 && totalDuration > 0
     ? totalDuration / tsChunks.length
     : 1;
-  const TARGET_DURATION = Math.max(Math.ceil(segDuration), 1);
 
+  // Use per-chunk durations from DB (parsed from ffmpeg's real EXTINF).
+  // Fall back to avgDuration when chunk data is missing or bogus.
+  // ponytail: skip absurd values (<=0, >30) — they're parse artifacts.
+  let maxDur = avgDuration;
   const lines: string[] = [
     "#EXTM3U",
     "#EXT-X-VERSION:3",
-    `#EXT-X-TARGETDURATION:${TARGET_DURATION}`,
     "#EXT-X-MEDIA-SEQUENCE:0",
     "#EXT-X-PLAYLIST-TYPE:VOD",
   ];
 
   for (const chunk of tsChunks) {
-    lines.push(`#EXTINF:${segDuration.toFixed(6)},`);
+    const raw = chunk.durationSeconds;
+    const dur = (raw != null && raw > 0 && raw <= 30) ? raw : avgDuration;
+    if (dur > maxDur) maxDur = dur;
+    lines.push(`#EXTINF:${dur.toFixed(6)},`);
     lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}${qs}`);
   }
+
+  const TARGET_DURATION = Math.max(Math.ceil(maxDur), 1);
+  lines.splice(2, 0, `#EXT-X-TARGETDURATION:${TARGET_DURATION}`);
+
   lines.push("#EXT-X-ENDLIST");
 
   return new Response(lines.join("\n") + "\n", {
@@ -75,7 +79,8 @@ export async function playlistHandler(c: Context<AppBindings>) {
       "Cache-Control": "no-store, must-revalidate",
       "Access-Control-Allow-Origin": "*",
       "X-Debug-Chunks": String(tsChunks.length),
-      "X-Debug-SegDuration": segDuration.toFixed(3),
+      "X-Debug-AvgDuration": avgDuration.toFixed(3),
+      "X-Debug-MaxDuration": maxDur.toFixed(3),
       "X-Debug-JobDuration": String(totalDuration),
     },
   });
