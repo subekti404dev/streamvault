@@ -19,6 +19,8 @@
   let detail = $state<LibraryDetail | null>(null);
   let loading = $state(true);
   let expandedSeasons = $state<Set<number>>(new Set([1]));
+  let expandedEpisodes = $state<Set<string>>(new Set());
+  let showMovieStreams = $state(false);
   let seriesVideos = $state<StremioVideo[]>([]);
   let metadataBaseUrl = $state('');
 
@@ -60,6 +62,14 @@
     if (next.has(season)) next.delete(season);
     else next.add(season);
     expandedSeasons = next;
+  }
+
+  function toggleEpisode(season: number, episode: number) {
+    const key = `${season}-${episode}`;
+    const next = new Set(expandedEpisodes);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    expandedEpisodes = next;
   }
 
   function getSeasons(): number[] {
@@ -156,9 +166,14 @@
     </div>
     {#if detail.media_type === 'movie' && detail.jobs.length > 0}
       <div class="season-section" style="margin-bottom:1.5rem">
-        <div class="season-header">
-          <span class="season-title">Streams</span>
-        </div>
+        <button class="season-header" onclick={() => showMovieStreams = !showMovieStreams}>
+          <span class="season-title">
+            Streams
+            <span class="episode-count">({detail.jobs.length} sources)</span>
+          </span>
+          <span class="season-toggle">{showMovieStreams ? '▴' : '▸'}</span>
+        </button>
+        {#if showMovieStreams}
         <div class="episodes-list">
           {#each detail.jobs as job, i}
             <div class="episode-row">
@@ -171,6 +186,7 @@
             </div>
           {/each}
         </div>
+        {/if}
       </div>
     {/if}
 
@@ -189,35 +205,49 @@
             {#if expandedSeasons.has(season)}
               <div class="episodes-list">
                 {#each getVideosForSeason(season) as video}
-                  <div class="episode-row" class:completed={isEpisodeCompleted(season, video.episode ?? 0)}>
-                    <span class="episode-badge">
-                      E{String(video.episode ?? 0).padStart(2, '0')}
-                    </span>
+                  {@const ep = video.episode ?? 0}
+                  {@const completed = isEpisodeCompleted(season, ep)}
+                  {@const epKey = `${season}-${ep}`}
+                  {@const epJobs = getAllEpisodeJobs(season, ep)}
+                  <button class="episode-row" class:completed onclick={() => toggleEpisode(season, ep)}>
+                    <span class="episode-badge">E{String(ep).padStart(2, '0')}</span>
                     <span class="episode-title">{video.title}</span>
                     <span class="episode-info">
-                      {#if isEpisodeCompleted(season, video.episode ?? 0)}
-                        {#each getAllEpisodeJobs(season, video.episode ?? 0) as epJob, epI}
+                      {#if completed}
+                        {#each epJobs as epJob, epI}
                           {epI > 0 ? ' / ' : ''}{epJob.torrent_name ?? epJob.video_resolution ?? `Q${epI + 1}`}
                         {/each}
-                        {#if getEpisodeJob(season, video.episode ?? 0)?.duration_seconds}
-                          · {formatDuration(getEpisodeJob(season, video.episode ?? 0)?.duration_seconds ?? 0)}
+                        {#if getEpisodeJob(season, ep)?.duration_seconds}
+                          · {formatDuration(getEpisodeJob(season, ep)?.duration_seconds ?? 0)}
                         {/if}
                       {:else}
                         <span class="text-muted">Not transcoded</span>
                       {/if}
-
                     </span>
-                    <div class="episode-actions">
-                      {#if isEpisodeCompleted(season, video.episode ?? 0)}
-                        {#each getAllEpisodeJobs(season, video.episode ?? 0) as epJob}
-                          <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? epJob.video_resolution ?? ''}>▶</a>
-                          <button class="btn btn-xs btn-danger" onclick={() => deleteJob(epJob.id)}>✗</button>
-                        {/each}
+                    <span class="episode-actions">
+                      {#if completed}
+                        <span class="season-toggle">{expandedEpisodes.has(epKey) ? '▴' : '▸'}</span>
                       {:else}
-                        <button class="btn btn-xs" onclick={() => navigateToSearch(season, video.episode ?? 1)}>🔍 Search</button>
+                        <button class="btn btn-xs" onclick={(e) => { e.stopPropagation(); navigateToSearch(season, ep); }}>🔍 Search</button>
                       {/if}
+                    </span>
+                  </button>
+                  {#if completed && expandedEpisodes.has(epKey)}
+                    <div class="stream-sublist">
+                      {#each epJobs as epJob}
+                        <div class="stream-row">
+                          <span class="stream-icon">└</span>
+                          <span class="stream-badge">{epJob.video_resolution ?? 'SD'}</span>
+                          <span class="stream-name">{epJob.torrent_name ?? 'Unknown'}</span>
+                          <span class="stream-duration">{epJob.duration_seconds ? formatDuration(epJob.duration_seconds) : ''}</span>
+                          <div class="stream-actions">
+                            <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? ''}>▶</a>
+                            <button class="btn btn-xs btn-danger" onclick={(e) => { e.stopPropagation(); deleteJob(epJob.id); }}>✗</button>
+                          </div>
+                        </div>
+                      {/each}
                     </div>
-                  </div>
+                  {/if}
                 {/each}
               </div>
             {/if}
@@ -303,4 +333,35 @@
   }
 
   .episode-actions { display: flex; gap: 0.25rem; }
+
+  /* ── Stream sublist (tree view) ── */
+  .stream-sublist {
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.15);
+  }
+  .stream-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 1rem 0.4rem 2rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .stream-row:last-child { border-bottom: none; }
+  .stream-icon {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted); font-size: 0.75rem;
+    min-width: 16px;
+  }
+  .stream-badge {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent); font-size: 0.75rem;
+    min-width: 48px;
+  }
+  .stream-name {
+    flex: 1; color: var(--text-secondary);
+  }
+  .stream-duration {
+    color: var(--text-muted); font-size: 0.8rem;
+    min-width: 60px; text-align: right;
+  }
+  .stream-actions { display: flex; gap: 0.25rem; }
 </style>
