@@ -214,9 +214,7 @@
                     <span class="episode-title">{video.title}</span>
                     <span class="episode-info">
                       {#if completed}
-                        {#each epJobs as epJob, epI}
-                          {epI > 0 ? ' / ' : ''}{epJob.torrent_name ?? epJob.video_resolution ?? `Q${epI + 1}`}
-                        {/each}
+                        {epJobs.length} source{epJobs.length !== 1 ? 's' : ''}
                         {#if getEpisodeJob(season, ep)?.duration_seconds}
                           · {formatDuration(getEpisodeJob(season, ep)?.duration_seconds ?? 0)}
                         {/if}
