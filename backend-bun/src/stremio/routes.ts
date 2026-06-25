@@ -96,8 +96,11 @@ export async function streamHandler(c: Context<AppBindings>) {
     const desc = season !== null && episode !== null
       ? `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")} • ${resolution} • H.264 / AAC`
       : `${resolution} • H.264 / AAC`;
+    const label = job.torrentName
+      ? `${job.torrentName.replace(/\.(mkv|mp4|avi)$/i, '')}`
+      : `StreamVault`;
     return {
-      name: `StreamVault\n${resolution} H.264`,
+      name: `${label}\n${resolution} H.264`,
       url: `${baseUrl}/proxy/hls/${job.id}/master.m3u8?token=${c.var.config.authSecret}`,
       description: desc,
     };
