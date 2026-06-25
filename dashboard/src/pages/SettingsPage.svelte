@@ -178,18 +178,21 @@
 
     <div class="settings-section">
       <h2 class="section-title">Backup & Restore</h2>
-      <div class="form-group">
+      <div class="settings-actions">
         <button type="button" class="btn btn-primary" onclick={exportData} disabled={exporting}>
           {exporting ? 'Exporting...' : '↥ Export Data'}
         </button>
-        <span class="text-muted" style="margin-left:0.5rem">Download all data as JSON</span>
+        <span class="text-muted" style="align-self:center">Download all data as JSON</span>
       </div>
       <div class="form-group">
-        <input type="file" accept=".json" onchange={(e) => { importFile = e.currentTarget.files?.[0] ?? null; }} />
+        <label for="import-file">Import backup file</label>
+        <input type="file" id="import-file" accept=".json" onchange={(e) => { importFile = e.currentTarget.files?.[0] ?? null; }} />
+      </div>
+      <div class="settings-actions">
         <button type="button" class="btn btn-danger" onclick={importData} disabled={importing || !importFile}>
           {importing ? 'Importing...' : '↧ Import Data'}
         </button>
-        <span class="text-muted" style="margin-left:0.5rem">WARNING: replaces all existing data</span>
+        <span class="text-muted" style="align-self:center">WARNING: replaces all existing data</span>
       </div>
     </div>
   {/if}
