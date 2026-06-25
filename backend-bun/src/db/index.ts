@@ -5,7 +5,7 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "./schema";
 
 /** Concrete type from drizzle, not ReturnType */
-export type DrizzleDB = BunSQLiteDatabase<typeof schema>;
+export type DrizzleDB = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
 /**
  * Parse `sqlite:/path/to/db?mode=rwc` → `/path/to/db`, or return as-is if plain path.

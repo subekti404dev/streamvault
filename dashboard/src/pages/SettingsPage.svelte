@@ -9,6 +9,9 @@
   let loading = $state(true);
   let saving = $state(false);
   let testing = $state(false);
+  let exporting = $state(false);
+  let importing = $state(false);
+  let importFile = $state<File | null>(null);
 
   const fields = [
     { key: 'gh_token', label: 'GitHub Token', type: 'password', section: 'GitHub' },
@@ -61,6 +64,58 @@
       addToast(`Test failed: ${e.message}`, 'error');
     } finally {
       testing = false;
+    }
+  }
+
+  async function exportData() {
+    exporting = true;
+    try {
+      const token = localStorage.getItem('streamvault_token');
+      const r = await fetch('/api/v1/export', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!r.ok) throw new Error(`Export failed: ${r.status}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `streamvault-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Backup downloaded', 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      addToast(`Export failed: ${msg}`, 'error');
+    } finally {
+      exporting = false;
+    }
+  }
+
+  async function importData() {
+    if (!importFile) return;
+    if (!confirm('This will replace ALL existing data. Continue?')) return;
+    importing = true;
+    try {
+      const text = await importFile.text();
+      const token = localStorage.getItem('streamvault_token');
+      const r = await fetch('/api/v1/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: text,
+      });
+      const result = await r.json();
+      if (!r.ok) throw new Error(result.error ?? `Import failed: ${r.status}`);
+      const c = result.imported;
+      addToast(`Imported: ${c.jobs} jobs, ${c.hls_chunks} chunks, ${c.app_settings} settings`, 'success');
+      importFile = null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      addToast(`Import failed: ${msg}`, 'error');
+    } finally {
+      importing = false;
     }
   }
 
@@ -119,6 +174,23 @@
     <div class="addon-info">
       <span class="detail-label">Stremio Addon URL</span>
       <code>{addonInstallUrl()}</code>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">Backup & Restore</h2>
+      <div class="form-group">
+        <button type="button" class="btn btn-primary" onclick={exportData} disabled={exporting}>
+          {exporting ? 'Exporting...' : '↥ Export Data'}
+        </button>
+        <span class="text-muted" style="margin-left:0.5rem">Download all data as JSON</span>
+      </div>
+      <div class="form-group">
+        <input type="file" accept=".json" onchange={(e) => { importFile = e.currentTarget.files?.[0] ?? null; }} />
+        <button type="button" class="btn btn-danger" onclick={importData} disabled={importing || !importFile}>
+          {importing ? 'Importing...' : '↧ Import Data'}
+        </button>
+        <span class="text-muted" style="margin-left:0.5rem">WARNING: replaces all existing data</span>
+      </div>
     </div>
   {/if}
 </div>

@@ -25,6 +25,7 @@ import { createJob, listJobs, getJob, retryJob, deleteJobHandler } from "./api/q
 import { getSettings, updateSettings, testNotification } from "./api/settings";
 import { listLibrary, requeueJobHandler, getLibraryItem, deleteLibraryItem } from "./api/library";
 import { progressCallback, completeCallback, failedCallback } from "./api/callbacks";
+import { exportHandler, importHandler } from "./api/backup";
 import { manifestHandler, catalogHandler, metaHandler, streamHandler } from "./stremio/routes";
 import { playlistHandler, chunkHandler } from "./stremio/proxy";
 import { serveStatic } from "hono/bun";
@@ -59,6 +60,8 @@ api.get("/library", listLibrary);
 api.post("/library/:id/requeue", requeueJobHandler);
 api.get("/library/:imdbId", getLibraryItem);
 api.delete("/library/:imdbId", deleteLibraryItem);
+api.get("/export", exportHandler);
+api.post("/import", importHandler);
 
 // CRITICAL: Callback sub-router MUST be registered BEFORE /api/v1 router.
 // Hono tries sub-routers in registration order; /api/v1/jobs/* also
