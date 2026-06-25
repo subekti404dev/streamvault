@@ -28,11 +28,20 @@ class BencodeReader {
 
   constructor(private data: Uint8Array) {}
 
+  /** Check bounds, throw on malformed input before walking past buffer */
+  private guard(i?: number): void {
+    if ((i ?? this.pos) >= this.data.length) {
+      throw new Error(`Bencode: unexpected end of data at offset ${i ?? this.pos}`);
+    }
+  }
+
   private peek(): number {
+    this.guard();
     return this.data[this.pos];
   }
 
   private readByte(): number {
+    this.guard();
     return this.data[this.pos++];
   }
 
@@ -48,7 +57,11 @@ class BencodeReader {
   private parseInt(): number {
     this.readByte(); // 'i'
     let end = this.pos;
-    while (this.data[end] !== 0x65 /* 'e' */) end++;
+    while (true) {
+      this.guard(end);
+      if (this.data[end] === 0x65 /* 'e' */) break;
+      end++;
+    }
     const str = new TextDecoder().decode(this.data.subarray(this.pos, end));
     this.pos = end + 1;
     return parseInt(str, 10);
@@ -56,9 +69,16 @@ class BencodeReader {
 
   private parseString(): string {
     let end = this.pos;
-    while (this.data[end] !== 0x3a /* ':' */) end++;
+    while (true) {
+      this.guard(end);
+      if (this.data[end] === 0x3a /* ':' */) break;
+      end++;
+    }
     const lenStr = new TextDecoder().decode(this.data.subarray(this.pos, end));
     const len = parseInt(lenStr, 10);
+    if (len < 0 || len > this.data.length - this.pos) {
+      throw new Error(`Bencode: invalid string length ${len} at offset ${this.pos}`);
+    }
     this.pos = end + 1;
     const str = new TextDecoder().decode(this.data.subarray(this.pos, this.pos + len));
     this.pos += len;
