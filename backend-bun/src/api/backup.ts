@@ -61,7 +61,12 @@ export async function exportHandler(c: Context<AppBindings>) {
 }
 
 export async function importHandler(c: Context<AppBindings>) {
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
 
   if (!isImportPayload(body)) {
     return c.json({ error: "Invalid backup format" }, 400);
