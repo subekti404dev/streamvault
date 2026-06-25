@@ -12,6 +12,7 @@
   let exporting = $state(false);
   let importing = $state(false);
   let importFile = $state<File | null>(null);
+  let dragOver = $state(false);
 
   const fields = [
     { key: 'gh_token', label: 'GitHub Token', type: 'password', section: 'GitHub' },
@@ -119,6 +120,18 @@
     }
   }
 
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (file?.name.endsWith('.json')) importFile = file;
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+
   function publicUrl(): string {
     return settings['public_base_url'] || (window.location.origin + window.location.pathname.replace(/\/$/, ''));
   }
@@ -186,7 +199,18 @@
       </div>
       <div class="form-group">
         <label for="import-file">Import backup file</label>
-        <input type="file" id="import-file" accept=".json" onchange={(e) => { importFile = e.currentTarget.files?.[0] ?? null; }} />
+        <div
+          class="drop-zone"
+          class:drop-zone-active={dragOver}
+          ondragover={handleDragOver}
+          ondragleave={() => dragOver = false}
+          ondrop={handleDrop}
+        >
+          <input type="file" id="import-file" accept=".json" onchange={(e) => { importFile = e.currentTarget.files?.[0] ?? null; }} />
+          <span class="drop-text">
+            {importFile ? importFile.name : 'Drop .json backup here or click to browse'}
+          </span>
+        </div>
       </div>
       <div class="settings-actions">
         <button type="button" class="btn btn-danger" onclick={importData} disabled={importing || !importFile}>
@@ -302,6 +326,32 @@
 
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
 
+
+/* ── Drop zone ── */
+.drop-zone {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+}
+.drop-zone-active {
+  border-color: var(--accent);
+  background: rgba(245, 197, 24, 0.05);
+}
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.drop-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
 @media (max-width: 639px) {
   .settings-actions { flex-direction: column; }
   .settings-actions button { width: 100%; justify-content: center; min-height: 44px; }
