@@ -71,37 +71,37 @@ export async function streamHandler(c: Context<AppBindings>) {
   const season = parts.length >= 2 ? parseInt(parts[1], 10) : null;
   const episode = parts.length >= 3 ? parseInt(parts[2], 10) : null;
 
-  // Find matching completed job
   const allCompleted = queries.listJobsByStatus(c.var.db, "completed");
-  let matched: queries.Job | undefined;
-
+  // Find all matching completed jobs — each becomes a separate stream
+  let candidates: queries.Job[];
   if (season !== null && episode !== null) {
-    matched = allCompleted.find(
+    candidates = allCompleted.filter(
       (j) => j.imdbId === imdbId && j.season === season && j.episode === episode
     );
   } else if (season !== null) {
-    matched = allCompleted.find(
+    candidates = allCompleted.filter(
       (j) => j.imdbId === imdbId && j.season === season
     );
   } else {
-    matched = allCompleted.find(
+    candidates = allCompleted.filter(
       (j) => j.imdbId === imdbId && j.season == null
     );
   }
 
-  if (!matched) return c.json({ streams: [] });
+  if (candidates.length === 0) return c.json({ streams: [] });
 
   const baseUrl = c.var.config.publicBaseUrl;
-  const resolution = matched.videoResolution || "HD";
-  const desc = season !== null && episode !== null
-    ? `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")} • ${resolution} • H.264 / AAC`
-    : `${resolution} • H.264 / AAC`;
-
-  return c.json({
-    streams: [{
+  const streams = candidates.map((job) => {
+    const resolution = job.videoResolution || "HD";
+    const desc = season !== null && episode !== null
+      ? `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")} • ${resolution} • H.264 / AAC`
+      : `${resolution} • H.264 / AAC`;
+    return {
       name: `StreamVault\n${resolution} H.264`,
-      url: `${baseUrl}/proxy/hls/${matched.id}/master.m3u8?token=${c.var.config.authSecret}`,
+      url: `${baseUrl}/proxy/hls/${job.id}/master.m3u8?token=${c.var.config.authSecret}`,
       description: desc,
-    }],
+    };
   });
+
+  return c.json({ streams });
 }
