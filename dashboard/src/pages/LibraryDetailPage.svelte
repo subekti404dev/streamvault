@@ -312,9 +312,13 @@
   .episodes-list { border-top: 1px solid var(--border); }
 
   .episode-row {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
+    width: 100%; display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 1rem; border: none; border-bottom: 1px solid var(--border);
+    background: #1A1A1A; color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    cursor: pointer; text-align: left;
   }
+  .episode-row:hover { background: #252525; }
   .episode-row:last-child { border-bottom: none; }
 
   .episode-badge {
