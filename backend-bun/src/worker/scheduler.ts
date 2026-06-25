@@ -113,14 +113,19 @@ export function worker(
   eventBus: EventBus,
 ): () => void {
   console.log("[scheduler] started — tick interval:", TICK_MS / 1000, "s");
-  // Run first tick immediately, then schedule subsequent ticks
-  tick(db, config, eventBus).catch((e) => {
-    console.error("[scheduler] initial tick error:", e);
-  });
-  const timer = setInterval(() => {
-    tick(db, config, eventBus).catch((e) => {
+  let stopped = false;
+
+  async function loop() {
+    if (stopped) return;
+    try {
+      await tick(db, config, eventBus);
+    } catch (e) {
       console.error("[scheduler] tick error:", e);
-    });
-  }, TICK_MS);
-  return () => clearInterval(timer);
+    }
+    if (!stopped) setTimeout(loop, TICK_MS);
+  }
+
+  // Run first tick immediately, then schedule subsequent ticks
+  loop();
+  return () => { stopped = true; };
 }

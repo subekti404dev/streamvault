@@ -97,7 +97,7 @@ export async function streamHandler(c: Context<AppBindings>) {
   return c.json({
     streams: [{
       name: `StreamVault\n${resolution} H.264`,
-      url: `${baseUrl}/proxy/hls/${matched.id}/master.m3u8`,
+      url: `${baseUrl}/proxy/hls/${matched.id}/master.m3u8?token=${c.var.config.authSecret}`,
       description: desc,
     }],
   });

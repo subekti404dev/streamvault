@@ -77,6 +77,9 @@ app.get("/manifest.json", manifestHandler);
 app.get("/catalog/:type/:catalogId", catalogHandler);
 app.get("/meta/:type/:imdbId", metaHandler);
 app.get("/stream/:type/:id", streamHandler);
+// HLS proxy — auth required (token embedded by streamHandler for Stremio clients)
+app.use("/proxy/hls/*", authMiddleware);
+
 app.get("/proxy/hls/:jobId/master.m3u8", playlistHandler);
 app.get("/proxy/hls/:jobId/:filename", chunkHandler);
 
@@ -101,7 +104,12 @@ app.notFound((c) => {
 // ── Startup ──
 startKeepAlive();
 recoverStaleJobs(db);
-worker(db, config, eventBus);
+const stopWorker = worker(db, config, eventBus);
+process.on("SIGTERM", () => {
+  console.log("[server] SIGTERM received — shutting down");
+  stopWorker();
+  process.exit(0);
+});
 
 // ── Serve ──
 console.log(`StreamVault Bun serving on http://0.0.0.0:8080`);

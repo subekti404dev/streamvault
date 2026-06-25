@@ -12,6 +12,10 @@ name: StreamVault Pipeline
 #   2. Partial match by base filename
 #   3. Fallback to any video file by extension
 
+concurrency:
+  group: ${{ inputs.job_id }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
@@ -168,6 +172,8 @@ jobs:
             -threads 2 \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
           FFMPEG_PID=$!
+          # Kill ffmpeg on exit/cancel — prevents orphaned processes
+          trap 'kill $FFMPEG_PID 2>/dev/null; trap - EXIT; exit' EXIT TERM INT
           echo "ffmpeg PID=$FFMPEG_PID"
 
           # Monitor ffmpeg progress
