@@ -23,8 +23,17 @@ function resolveBaseUrl(c: Context<AppBindings>): string {
 
   return "http://localhost:8080";
 }
+function extractToken(c: Context<AppBindings>): string {
+  const fromHeader = c.req.header("Authorization")?.startsWith("Bearer ")
+    ? c.req.header("Authorization")!.slice(7)
+    : undefined;
+  return fromHeader || c.req.query("token") || "";
+}
+
 export async function playlistHandler(c: Context<AppBindings>) {
   const jobId = c.req.param("jobId")!;
+  const token = extractToken(c);
+  const qs = token ? `?token=${token}` : "";
   const allChunks = queries.getHlsChunks(c.var.db, jobId);
   const tsChunks = allChunks.filter((ch) => ch.filename.endsWith(".ts") && ch.discordUrl != null);
 
@@ -50,7 +59,7 @@ export async function playlistHandler(c: Context<AppBindings>) {
   for (const chunk of tsChunks) {
     const duration = chunk.durationSeconds || 6;
     lines.push(`#EXTINF:${duration.toFixed(6)},`);
-    lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}`);
+    lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}${qs}`);
   }
   lines.push("#EXT-X-ENDLIST");
 
