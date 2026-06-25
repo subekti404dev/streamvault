@@ -85,7 +85,20 @@
           {#each fields.filter(f => f.section === section) as field}
             <div class="form-group">
               <label for={field.key}>{field.label}</label>
-              {#if field.type === 'checkbox'}
+              {#if field.key === 'notifications_enabled'}
+                <label class="toggle" for={field.key}>
+                  <input
+                    type="checkbox"
+                    id={field.key}
+                    checked={settings[field.key] === 'true' || settings[field.key] === '1'}
+                    onchange={(e) => settings[field.key] = e.currentTarget.checked ? 'true' : 'false'}
+                  />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">
+                    {settings[field.key] === 'true' || settings[field.key] === '1' ? 'On' : 'Off'}
+                  </span>
+                </label>
+              {:else if field.type === 'checkbox'}
                 <input type="checkbox" id={field.key} checked={settings[field.key] === 'true' || settings[field.key] === '1'} onchange={(e) => settings[field.key] = e.currentTarget.checked ? 'true' : 'false'} />
               {:else}
                 <input type={field.type} id={field.key} bind:value={settings[field.key]} placeholder={field.placeholder ?? ''} />
@@ -136,6 +149,66 @@
   margin-top: 1.5rem; padding: 1rem;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+
+/* ── Toggle Switch ── */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle input:checked + .toggle-slider {
+  background: var(--accent);
+}
+
+.toggle input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+  background: #1a1a1a;
+}
+
+.toggle-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.toggle input:checked ~ .toggle-label {
+  color: var(--accent);
 }
 
 .addon-info code {
