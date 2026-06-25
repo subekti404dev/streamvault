@@ -71,6 +71,7 @@ export interface LibraryJob {
   episode: number | null;
   status: string;
   video_resolution: string | null;
+  torrent_name: string | null;
   duration_seconds: number | null;
   created_at: string;
 }

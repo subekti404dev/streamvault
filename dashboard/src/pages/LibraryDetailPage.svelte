@@ -160,7 +160,7 @@
         {#each detail.jobs as job, i}
           <div class="stream-item">
             <a href={hlsUrl(job.id)} target="_blank" class="btn btn-primary">
-              ▶ Play {job.video_resolution ?? `Quality ${i + 1}`}
+              ▶ Play {job.torrent_name ?? job.video_resolution ?? `Quality ${i + 1}`}
             </a>
             <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>
               ✗ Delete
@@ -192,23 +192,23 @@
                     <span class="episode-title">{video.title}</span>
                     <span class="episode-info">
                       {#if isEpisodeCompleted(season, video.episode ?? 0)}
-                        {#if getEpisodeJob(season, video.episode ?? 0)?.video_resolution}
-                          {getEpisodeJob(season, video.episode ?? 0)?.video_resolution}
-                        {/if}
+                        {#each getAllEpisodeJobs(season, video.episode ?? 0) as epJob, epI}
+                          {epI > 0 ? ' / ' : ''}{epJob.torrent_name ?? epJob.video_resolution ?? `Q${epI + 1}`}
+                        {/each}
                         {#if getEpisodeJob(season, video.episode ?? 0)?.duration_seconds}
                           · {formatDuration(getEpisodeJob(season, video.episode ?? 0)?.duration_seconds ?? 0)}
                         {/if}
                       {:else}
                         <span class="text-muted">Not transcoded</span>
                       {/if}
+
                     </span>
                     <div class="episode-actions">
                       {#if isEpisodeCompleted(season, video.episode ?? 0)}
-                        {@const job = getEpisodeJob(season, video.episode ?? 0)}
-                        <a href={hlsUrl(job?.id)} target="_blank" class="btn btn-xs btn-primary">▶</a>
-                        <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job?.id ?? '')}>
-                          ✗
-                        </button>
+                        {#each getAllEpisodeJobs(season, video.episode ?? 0) as epJob}
+                          <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? epJob.video_resolution ?? ''}>{epJob.torrent_name ?? epJob.video_resolution ?? '▶'}</a>
+                          <button class="btn btn-xs btn-danger" onclick={() => deleteJob(epJob.id)}>✗</button>
+                        {/each}
                       {:else}
                         <button class="btn btn-xs" onclick={() => navigateToSearch(season, video.episode ?? 1)}>🔍 Search</button>
                       {/if}

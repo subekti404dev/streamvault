@@ -109,6 +109,7 @@ export interface LibraryJob {
   episode: number | null;
   status: string;
   videoResolution: string | null;
+  torrentName: string | null;
   durationSeconds: number | null;
   createdAt: string;
 }
@@ -466,10 +467,8 @@ export function getCompletedJobsGrouped(
     const childJobRows = db.select({
       id: jobs.id,
       title: jobs.title,
-      season: jobs.season,
-      episode: jobs.episode,
-      status: jobs.status,
       videoResolution: jobs.videoResolution,
+      torrentName: jobs.torrentName,
       durationSeconds: jobs.durationSeconds,
       createdAt: jobs.createdAt,
     })
@@ -526,8 +525,8 @@ export function getLibraryDetail(db: DrizzleDB, imdbId: string): LibraryDetail {
     title: jobs.title,
     season: jobs.season,
     episode: jobs.episode,
-    status: jobs.status,
     videoResolution: jobs.videoResolution,
+    torrentName: jobs.torrentName,
     durationSeconds: jobs.durationSeconds,
     createdAt: jobs.createdAt,
   })
