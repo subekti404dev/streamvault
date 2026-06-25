@@ -42,10 +42,13 @@ export async function playlistHandler(c: Context<AppBindings>) {
   }
 
   const baseUrl = resolveBaseUrl(c);
-  const targetDuration = Math.max(
-    ...tsChunks.map((ch) => Math.ceil(ch.durationSeconds || 0)),
-    1,
-    6,
+  const MAX_SEGMENT_DURATION = 10;
+  const targetDuration = Math.min(
+    Math.max(
+      ...tsChunks.map((ch) => Math.ceil(ch.durationSeconds || 0)),
+      6,
+    ),
+    MAX_SEGMENT_DURATION,
   );
 
   const lines: string[] = [
@@ -57,7 +60,8 @@ export async function playlistHandler(c: Context<AppBindings>) {
   ];
 
   for (const chunk of tsChunks) {
-    const duration = chunk.durationSeconds || 6;
+    // ponytail: clamp to prevent bogus durations (e.g. 1200s) from ffmpeg/parse bugs
+    const duration = Math.min(chunk.durationSeconds || 6, MAX_SEGMENT_DURATION);
     lines.push(`#EXTINF:${duration.toFixed(6)},`);
     lines.push(`${baseUrl}/proxy/hls/${jobId}/${chunk.filename}${qs}`);
   }
