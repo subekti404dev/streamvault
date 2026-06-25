@@ -104,8 +104,8 @@
   }
 
   function eventColor(type: string): string {
-    const colors: Record<string, string> = { status_change: '#6366f1', progress: '#3b82f6', checkpoint: '#10b981', error: '#ef4444' };
-    return colors[type] || '#64748b';
+    const vars: Record<string, string> = { status_change: 'var(--info)', progress: 'var(--info)', checkpoint: 'var(--success)', error: 'var(--danger)' };
+    return vars[type] || 'var(--text-muted)';
   }
 </script>
 

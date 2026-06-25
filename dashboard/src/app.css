@@ -76,7 +76,7 @@ label, .label-mono,
 
 .btn:hover {
   border-color: var(--accent);
-  background: #222222;
+  background: var(--glass-hover);
 }
 
 .btn:active {
@@ -124,6 +124,23 @@ label, .label-mono,
   font-size: 0.8rem;
 }
 
+.btn-xs {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* btn-secondary variant */
+.btn-secondary {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
 /* Form inputs */
 input, select, textarea {
   background: var(--surface);
@@ -164,7 +181,7 @@ label {
 /* Badge — square with border */
 .badge {
   display: inline-flex;
-  align-items: center;
+  background: var(--border);
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -178,7 +195,7 @@ label {
 /* Progress bar — thin 4px solid */
 .progress-bar {
   height: 4px;
-  background: #2A2A2A;
+  border: 1px solid var(--border);
   border-radius: 0;
   overflow: hidden;
 }
@@ -192,16 +209,16 @@ label {
 /* Terminal log box */
 .terminal-log {
   background: #000000;
-  border: 1px solid #2A2A2A;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  color: #00E5A0;
+  color: var(--text-primary);
   overflow-y: auto;
   max-height: 12rem;
   line-height: 1.6;
 }
+
 
 .terminal-log .log-line {
   white-space: pre-wrap;
@@ -209,11 +226,11 @@ label {
 }
 
 .terminal-log .log-line.error {
-  color: #FF4466;
+  color: var(--danger);
 }
 
 .terminal-log .log-line.warn {
-  color: #F5C518;
+  color: var(--accent);
 }
 
 /* Utility */

@@ -75,7 +75,7 @@
     {#if processing.length > 0}
       <h2 class="section-title">Processing</h2>
       {#each processing as job}
-        <div class="job-card" style="border-left-color: #00E5A0;">
+        <div class="job-card processing">
           <div class="job-header">
             <div>
               <strong>{job.title || job.imdb_id}</strong>
@@ -94,7 +94,7 @@
                 <span>{getPhaseProgress(job).download}%</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" style="width:{getPhaseProgress(job).download}%; background:#3b82f6;"></div>
+                <div class="progress-fill phase-download" style="width:{getPhaseProgress(job).download}%;"></div>
               </div>
             </div>
             <div class="phase-arrow">→</div>
@@ -104,7 +104,7 @@
                 <span>{getPhaseProgress(job).transcode}%</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" style="width:{getPhaseProgress(job).transcode}%; background:#8b5cf6;"></div>
+                <div class="progress-fill phase-transcode" style="width:{getPhaseProgress(job).transcode}%;"></div>
               </div>
             </div>
             <div class="phase-arrow">→</div>
@@ -114,13 +114,13 @@
                 <span>{getPhaseProgress(job).upload}%</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" style="width:{getPhaseProgress(job).upload}%; background:#f97316;"></div>
+                <div class="progress-fill phase-upload" style="width:{getPhaseProgress(job).upload}%;"></div>
               </div>
             </div>
           </div>
           <div class="job-footer">
             <span class="text-muted">Added {job.created_at ? new Date(job.created_at + 'Z').toLocaleString() : ''}</span>
-            <div style="display:flex; gap:0.5rem;">
+            <div class="job-actions">
               <a href="#job/{job.id}" class="btn btn-sm">Details</a>
               <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Cancel</button>
             </div>
@@ -208,13 +208,18 @@
   .job-card {
     background: var(--surface); border: 1px solid var(--border);
     border-left: 3px solid var(--border);
-    border-radius: var(--radius);
     padding: 1rem 1.25rem; margin-bottom: 0.5rem;
+    border-radius: var(--radius);
+  }
+
+  .job-card.processing {
+    border-left-color: var(--success);
   }
 
   .job-card.failed {
     border-color: var(--danger); border-left-color: var(--danger);
   }
+
 
   .job-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -258,8 +263,18 @@
   }
 
   .episode-badge {
-    border-color: #555555; color: var(--text-secondary); margin-left: 0.4rem;
+    border-color: var(--border); color: var(--text-secondary); margin-left: 0.4rem;
   }
+
+  .phase-download { background: var(--info); }
+  .phase-transcode { background: #8b5cf6; }
+  .phase-upload { background: #f97316; }
+
+  .job-actions {
+    display: flex; gap: 0.5rem;
+  }
+
+  .job-card:hover { border-color: var(--text-secondary); }
 
   @media (max-width: 639px) {
     .job-footer {

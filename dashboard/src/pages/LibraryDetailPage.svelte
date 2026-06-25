@@ -217,7 +217,7 @@
     text-decoration: none;
     font-size: 0.9rem;
   }
-  .back-link:hover { color: var(--text); }
+  .back-link:hover { color: var(--text-primary); }
 
   .detail-header {
     display: flex;
@@ -229,7 +229,7 @@
     width: 200px;
     flex-shrink: 0;
     aspect-ratio: 2/3;
-    border-radius: 8px;
+    border-radius: var(--radius);
     overflow: hidden;
   }
 
@@ -244,21 +244,21 @@
 
   .actions-card {
     display: flex; gap: 0.75rem; padding: 1rem;
-    background: var(--card-bg); border: 1px solid var(--border);
-    border-radius: 8px; margin-bottom: 1.5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 1.5rem;
   }
 
   .seasons-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
   .season-section {
-    background: var(--card-bg); border: 1px solid var(--border);
-    border-radius: 8px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
   }
 
   .season-header {
     width: 100%; display: flex; justify-content: space-between;
     align-items: center; padding: 0.75rem 1rem;
-    background: transparent; border: none; color: var(--text);
+    background: transparent; border: none; color: var(--text-primary);
     cursor: pointer; text-align: left; font-size: 1rem; font-weight: 600;
   }
   .season-header:hover { background: var(--bg-secondary); }
@@ -276,7 +276,7 @@
   .episode-row:last-child { border-bottom: none; }
 
   .episode-badge {
-    font-family: monospace; color: var(--primary); min-width: 40px;
+    font-family: 'JetBrains Mono', monospace; color: var(--accent); min-width: 40px;
   }
 
   .episode-title {

@@ -665,7 +665,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 
   .search-bar input {
     flex: 1;
-    border-color: #333333;
+    border-color: var(--border-light);
   }
 
   .advanced-toggle {

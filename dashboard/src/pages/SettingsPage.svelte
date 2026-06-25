@@ -195,7 +195,7 @@
 
 .toggle input:checked + .toggle-slider::after {
   transform: translateX(20px);
-  background: #1a1a1a;
+  background: var(--surface);
 }
 
 .toggle-label {

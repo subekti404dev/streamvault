@@ -282,7 +282,7 @@
 
   .nav-link:hover {
     color: var(--text-primary);
-    background: #222222;
+    background: var(--glass-hover);
   }
 
   .nav-link.active {
@@ -333,7 +333,7 @@
     justify-content: center;
     border-radius: var(--radius-sm);
   }
-  .hamburger:hover { background: #222222; }
+  .hamburger:hover { background: var(--glass-hover); }
 
   /* Drawer */
   .drawer-backdrop {
@@ -378,7 +378,7 @@
     justify-content: center;
     border-radius: var(--radius-sm);
   }
-  .drawer-close:hover { background: #222222; }
+  .drawer-close:hover { background: var(--glass-hover); }
 
   .drawer-links {
     flex: 1;

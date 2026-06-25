@@ -147,18 +147,24 @@
 
   .tab {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--text-secondary);
-    background: #1A1A1A;
+    border: 1px solid var(--border);
+    background: var(--surface);
     color: var(--text-secondary);
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
     font-size: 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s ease;
+  }
+
+  .tab:hover {
+    color: var(--text-primary);
   }
 
   .tab.active {
-    background: var(--surface);
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .library-grid {
@@ -166,18 +172,18 @@
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 1rem;
   }
-
   .library-card {
-    background: var(--card-bg);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 0.75rem;
     transition: border-color 0.2s;
   }
 
   .library-card:hover {
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
+
   .poster-link {
     display: block;
     text-decoration: none;
@@ -190,7 +196,7 @@
 
   .poster-container {
     aspect-ratio: 2/3;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     margin-bottom: 0.5rem;
   }
