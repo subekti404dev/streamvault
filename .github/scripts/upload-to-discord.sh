@@ -63,14 +63,10 @@ while IFS= read -r file; do
   CURRENT=$((CURRENT + 1))
   BASENAME=$(basename "$file")
 
-  # Check Discord file size limit (25MB for bot uploads)
+  # Warn if file exceeds Discord 25MB limit (bot uploads), but still try
   SIZE=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
   if [ "$SIZE" -gt 26214400 ]; then
-    echo "  ✗ $BASENAME is ${SIZE} bytes — exceeds Discord 25MB limit"
-    callback "progress" \
-      "{\"phase\":\"upload\",\"progress_pct\":$((CURRENT * 100 / TOTAL)),\"chunk\":{\"chunk_index\":$CURRENT,\"filename\":\"$BASENAME\",\"error\":\"file_too_large\"}}"
-    FAILED_COUNT=$((FAILED_COUNT + 1))
-    continue
+    echo "  ⚠ $BASENAME is ${SIZE} bytes — may exceed Discord 25MB, trying anyway"
   fi
 
 
