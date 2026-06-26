@@ -30,12 +30,16 @@
   }
 
   async function retryJob(id: string) {
+    // optimistic: remove from failed instantly so user sees immediate response
+    failed = failed.filter(j => j.id !== id);
+    addToast('Retrying job...', 'info');
     try {
       await api.retryJob(id);
       addToast('Job requeued for retry', 'success');
       loadQueue();
     } catch (e: any) {
       addToast(`Retry failed: ${e.message}`, 'error');
+      loadQueue();
     }
   }
 
