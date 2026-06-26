@@ -827,21 +827,19 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
+    min-width: 0;
   }
 
   .torrent-name {
     font-weight: 600;
     font-size: 0.875rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
   .torrent-title {
     color: var(--text-secondary);
     font-size: 0.8rem;
-  }
-
-  .torrent-size {
-    color: var(--text-muted);
-    font-size: 0.75rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
   .source-tabs {
