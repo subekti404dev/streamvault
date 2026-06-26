@@ -12,6 +12,7 @@
   let queued = $state<Job[]>([]);
   let failed = $state<Job[]>([]);
   let loading = $state(true);
+  let ghRepo = $state<string | null>(null);
 
   async function loadQueue() {
     try {
@@ -19,6 +20,8 @@
       processing = data.processing;
       queued = data.queued;
       failed = data.failed;
+      const settings = await api.getSettings();
+      ghRepo = settings.gh_repo || null;
     } catch (e: any) {
       addToast(`Failed to load queue: ${e.message}`, 'error');
     } finally {
@@ -162,7 +165,10 @@
               {#if job.error_message}
                 <span class="text-muted">{job.error_message}</span>
               {/if}
-            </div>
+              {#if job.gh_run_id && job.gh_run_id !== 'pending' && ghRepo}
+                <a href="https://github.com/{ghRepo}/actions/runs/{job.gh_run_id}"
+                   target="_blank" rel="noreferrer" class="ci-link">Open CI run ↗</a>
+              {/if}
             <div style="display:flex; gap:0.5rem;">
               <button class="btn btn-success btn-sm" onclick={() => retryJob(job.id)}>Retry</button>
               <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>Remove</button>
@@ -220,6 +226,12 @@
     border-color: var(--danger); border-left-color: var(--danger);
   }
 
+
+  .ci-link {
+    display: inline-block; margin-top: 0.35rem;
+    color: var(--info); text-decoration: none; font-weight: 600; font-size: 0.8rem;
+  }
+  .ci-link:hover { text-decoration: underline; }
 
   .job-header {
     display: flex; align-items: center; justify-content: space-between;

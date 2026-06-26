@@ -16,6 +16,7 @@ export interface Job {
   video_resolution?: string | null;
   duration_seconds?: number | null;
   error_message?: string | null;
+  gh_run_id?: string | null;
   created_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
