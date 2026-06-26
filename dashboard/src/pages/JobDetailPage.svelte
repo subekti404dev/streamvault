@@ -177,10 +177,10 @@
         <h3>Error Details</h3>
         <p>{job.error_message || 'Unknown error'}</p>
         <div class="mt-3">
-          <button class="btn btn-success mt-2" onclick={retryJob}>
+          <button class="btn btn-success btn-sm mt-2" onclick={retryJob}>
             Resume
           </button>
-          <button class="btn btn-danger ml-2" onclick={deleteJob}>Remove</button>
+          <button class="btn btn-danger btn-sm ml-2" onclick={deleteJob}>Remove</button>
         </div>
       </div>
     {/if}
