@@ -833,13 +833,13 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   .torrent-name {
     font-weight: 600;
     font-size: 0.875rem;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    word-break: break-word; margin-bottom: 0.15rem;
   }
 
   .torrent-title {
     color: var(--text-secondary);
     font-size: 0.8rem;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    word-break: break-word; margin-bottom: 0.15rem;
   }
 
   .source-tabs {
