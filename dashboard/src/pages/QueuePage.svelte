@@ -169,6 +169,7 @@
                 <a href="https://github.com/{ghRepo}/actions/runs/{job.gh_run_id}"
                    target="_blank" rel="noreferrer" class="ci-link">Open CI run ↗</a>
               {/if}
+            </div>
             <div style="display:flex; gap:0.5rem;">
               <button class="btn btn-success btn-sm" onclick={() => retryJob(job.id)}>Retry</button>
               <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>Remove</button>
