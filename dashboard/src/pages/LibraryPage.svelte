@@ -64,16 +64,16 @@
   <p class="page-subtitle">Browse your completed content</p>
 
   <!-- Tabs -->
-  <div class="tabs">
+  <div class="tab-container">
     <button
-      class="tab"
+      class="tab-btn"
       class:active={activeTab === 'movie'}
       onclick={() => switchTab('movie')}
     >
       Movies ({movieTotal})
     </button>
     <button
-      class="tab"
+      class="tab-btn"
       class:active={activeTab === 'series'}
       onclick={() => switchTab('series')}
     >
@@ -139,32 +139,35 @@
 </div>
 
 <style>
-  .tabs {
+  .tab-container {
     display: flex;
-    gap: 0.5rem;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
     margin-bottom: 1.5rem;
+    margin-top: 1rem;
   }
 
-  .tab {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
+  .tab-btn {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
     color: var(--text-secondary);
-    border-radius: var(--radius);
     cursor: pointer;
-    font-size: 0.9rem;
     font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
     transition: all 0.15s ease;
+    margin-bottom: -2px;
   }
 
-  .tab:hover {
+  .tab-btn:hover {
     color: var(--text-primary);
   }
 
-  .tab.active {
-    background: var(--bg-secondary);
-    border-color: var(--accent);
+  .tab-btn.active {
     color: var(--accent);
+    border-bottom-color: var(--accent);
   }
 
   .library-grid {
