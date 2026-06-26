@@ -1049,6 +1049,11 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     .results-grid {
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
+    .torrent-item {
+      flex-direction: column; gap: 0.75rem;
+    }
+    .torrent-actions { width: 100%; }
+    .torrent-actions .btn { flex: 1; justify-content: center; }
   }
   /* ponytail: utility classes replacing Tailwind conventions */
   :global(.flex) { display: flex; }
