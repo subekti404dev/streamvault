@@ -63,6 +63,17 @@ while IFS= read -r file; do
   CURRENT=$((CURRENT + 1))
   BASENAME=$(basename "$file")
 
+  # Check Discord file size limit (25MB for bot uploads)
+  SIZE=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+  if [ "$SIZE" -gt 26214400 ]; then
+    echo "  ✗ $BASENAME is ${SIZE} bytes — exceeds Discord 25MB limit"
+    callback "progress" \
+      "{\"phase\":\"upload\",\"progress_pct\":$((CURRENT * 100 / TOTAL)),\"chunk\":{\"chunk_index\":$CURRENT,\"filename\":\"$BASENAME\",\"error\":\"file_too_large\"}}"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+    continue
+  fi
+
+
   # Get real duration from parsed playlist, fallback to 6.0
   DURATION="${CHUNK_DURATIONS[$BASENAME]:-6.0}"
 
