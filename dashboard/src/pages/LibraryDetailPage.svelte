@@ -180,8 +180,8 @@
               <span class="episode-badge">{job.video_resolution ?? `Q${i + 1}`}</span>
               <span class="episode-title">{job.torrent_name ?? 'Unknown'}</span>
               <div class="episode-actions">
-                <a href={hlsUrl(job.id)} target="_blank" class="btn btn-xs btn-primary">▶ Play</a>
-                <button class="btn btn-xs btn-danger" onclick={() => deleteJob(job.id)}>✗</button>
+                <a href={hlsUrl(job.id)} target="_blank" class="btn btn-sm btn-primary">▶ Play</a>
+                <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>✗ Delete</button>
               </div>
             </div>
           {/each}
@@ -226,7 +226,7 @@
                       {#if completed}
                         <span class="season-toggle">{expandedEpisodes.has(epKey) ? '▴' : '▸'}</span>
                       {:else}
-                        <button class="btn btn-xs" onclick={(e) => { e.stopPropagation(); navigateToSearch(season, ep); }}>🔍 Search</button>
+                        <button class="btn btn-sm" onclick={(e) => { e.stopPropagation(); navigateToSearch(season, ep); }}>🔍 Search</button>
                       {/if}
                     </span>
                   </button>
@@ -239,8 +239,8 @@
                           <span class="stream-name">{epJob.torrent_name ?? 'Unknown'}</span>
                           <span class="stream-duration">{epJob.duration_seconds ? formatDuration(epJob.duration_seconds) : ''}</span>
                           <div class="stream-actions">
-                            <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-xs btn-primary" title={epJob.torrent_name ?? ''}>▶</a>
-                            <button class="btn btn-xs btn-danger" onclick={(e) => { e.stopPropagation(); deleteJob(epJob.id); }}>✗</button>
+                            <a href={hlsUrl(epJob.id)} target="_blank" class="btn btn-sm btn-primary" title={epJob.torrent_name ?? ''}>▶ Play</a>
+                            <button class="btn btn-sm btn-danger" onclick={(e) => { e.stopPropagation(); deleteJob(epJob.id); }}>✗ Delete</button>
                           </div>
                         </div>
                       {/each}
@@ -366,4 +366,21 @@
     min-width: 60px; text-align: right;
   }
   .stream-actions { display: flex; gap: 0.25rem; }
+
+  @media (max-width: 639px) {
+    .detail-header {
+      flex-direction: column; align-items: center; text-align: center;
+    }
+    .poster-container { width: 140px; }
+    .episode-row {
+      flex-wrap: wrap; gap: 0.35rem; padding: 0.5rem;
+    }
+    .episode-badge { min-width: 32px; }
+    .episode-info { min-width: unset; }
+    .episode-actions { margin-left: auto; }
+    .stream-row {
+      flex-wrap: wrap; gap: 0.35rem; padding: 0.4rem 0.5rem 0.4rem 1rem;
+    }
+    .stream-name { min-width: unset; }
+  }
 </style>
