@@ -57,14 +57,12 @@ Plan & spesifikasi teknis untuk menambahkan **Telegram (MTProto)** sebagai backe
 ### Variabel environment baru
 
 ```bash
-STREAMVAULT_TG_API_ID=            # integer, my.telegram.org
-STREAMVAULT_TG_API_HASH=          # string
-STREAMVAULT_TG_BOT_TOKEN=         # token BotFather (storage, TERPISAH dari notifikasi)
-STREAMVAULT_TG_CHANNEL_ID=        # chat id channel storage (mis. -1001234567890)
+STREAMVAULT_TG_STORAGE_BOT_TOKEN=   # token BotFather (storage, TERPISAH dari notifikasi)
+STREAMVAULT_TG_STORAGE_CHANNEL_ID=  # chat id channel storage (mis. -1001234567890)
 STREAMVAULT_STORAGE_PROVIDER=discord  # "discord" (default) | "telegram"
 ```
 
-Catatan: `STREAMVAULT_TELEGRAM_BOT_TOKEN` / `STREAMVAULT_TELEGRAM_CHANNEL_ID` yang sudah ada **tetap untuk notifikasi** (`backend/src/notifications/telegram.rs`). Jangan dicampur.
+Catatan: `STREAMVAULT_TELEGRAM_BOT_TOKEN` / `STREAMVAULT_TELEGRAM_CHANNEL_ID` yang sudah ada **tetap untuk notifikasi** (`backend/src/notifications/telegram.rs`). Jangan dicampur. Jika `STREAMVAULT_TG_STORAGE_*` tidak diset, storage akan fallback ke kredensial `TELEGRAM_*` yang lama demi kompatibilitas dengan setup lama.
 
 ---
 

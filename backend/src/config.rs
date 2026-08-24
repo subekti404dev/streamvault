@@ -13,6 +13,9 @@ pub struct Config {
     pub discord_channel_ids: Option<String>,
     pub telegram_bot_token: Option<String>,
     pub telegram_channel_id: Option<String>,
+    pub storage_provider: Option<String>,
+    pub tg_storage_bot_token: Option<String>,
+    pub tg_storage_channel_id: Option<String>,
     pub torrentio_base_url: Option<String>,
     pub dashboard_dir: PathBuf,
 }
@@ -33,6 +36,9 @@ impl Config {
             discord_channel_ids: std::env::var("STREAMVAULT_DISCORD_CHANNEL_IDS").ok(),
             telegram_bot_token: std::env::var("STREAMVAULT_TELEGRAM_BOT_TOKEN").ok(),
             telegram_channel_id: std::env::var("STREAMVAULT_TELEGRAM_CHANNEL_ID").ok(),
+            storage_provider: std::env::var("STREAMVAULT_STORAGE_PROVIDER").ok(),
+            tg_storage_bot_token: std::env::var("STREAMVAULT_TG_STORAGE_BOT_TOKEN").ok(),
+            tg_storage_channel_id: std::env::var("STREAMVAULT_TG_STORAGE_CHANNEL_ID").ok(),
             torrentio_base_url: std::env::var("STREAMVAULT_TORRENTIO_BASE_URL").ok(),
             dashboard_dir: std::env::var("STREAMVAULT_DASHBOARD_DIR")
                 .map(PathBuf::from)

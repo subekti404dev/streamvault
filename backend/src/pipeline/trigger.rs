@@ -84,10 +84,10 @@ pub async fn trigger_pipeline(
     let is_telegram = storage_provider == "telegram";
 
     let (discord_token, discord_channel, tg_bot_token, tg_channel_id) = if is_telegram {
-        let tg_bot_token = get_setting_or_env(state, "telegram_bot_token").await?
-            .ok_or_else(|| AppError::BadRequest("Telegram bot token not configured".into()))?;
-        let tg_channel_id = get_setting_or_env(state, "telegram_channel_id").await?
-            .ok_or_else(|| AppError::BadRequest("Telegram channel ID not configured".into()))?;
+        let tg_bot_token = get_storage_tg_credential(state, "tg_storage_bot_token").await?
+            .ok_or_else(|| AppError::BadRequest("Telegram storage bot token not configured".into()))?;
+        let tg_channel_id = get_storage_tg_credential(state, "tg_storage_channel_id").await?
+            .ok_or_else(|| AppError::BadRequest("Telegram storage channel ID not configured".into()))?;
         (String::new(), String::new(), tg_bot_token, tg_channel_id)
     } else {
         let discord_token = get_setting_or_env(state, "discord_bot_token").await?.unwrap_or_default();
@@ -198,7 +198,23 @@ pub async fn get_setting_or_env(state: &Arc<AppState>, key: &str) -> AppResult<O
         "discord_channel_id" => config.discord_channel_id.clone(),
         "telegram_bot_token" => config.telegram_bot_token.clone(),
         "telegram_channel_id" => config.telegram_channel_id.clone(),
+        "storage_provider" => config.storage_provider.clone(),
+        "tg_storage_bot_token" => config.tg_storage_bot_token.clone(),
+        "tg_storage_channel_id" => config.tg_storage_channel_id.clone(),
         "torrentio_base_url" => config.torrentio_base_url.clone(),
         _ => None,
     })
+}
+
+/// Resolve a Telegram credential for HLS chunk storage. Prefers the dedicated
+/// tg_storage_* setting/env, falls back to the shared telegram_* credentials
+/// (notifications) for backward compatibility.
+pub async fn get_storage_tg_credential(state: &Arc<AppState>, key: &str) -> AppResult<Option<String>> {
+    if let Some(v) = get_setting_or_env(state, key).await? {
+        if !v.is_empty() {
+            return Ok(Some(v));
+        }
+    }
+    let legacy = if key == "tg_storage_bot_token" { "telegram_bot_token" } else { "telegram_channel_id" };
+    get_setting_or_env(state, legacy).await
 }

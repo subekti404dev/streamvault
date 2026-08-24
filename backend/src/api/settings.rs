@@ -18,6 +18,7 @@ pub async fn get_settings(
         "discord_bot_token", "discord_channel_id", "discord_channel_ids",
         "storage_provider",
         "telegram_bot_token", "telegram_channel_id",
+        "tg_storage_bot_token", "tg_storage_channel_id",
         "notifications_enabled",
         "torrentio_base_url",
         "public_base_url",
@@ -35,6 +36,9 @@ pub async fn get_settings(
                 "discord_channel_ids" => config.discord_channel_ids.clone(),
                 "telegram_bot_token" => config.telegram_bot_token.clone(),
                 "telegram_channel_id" => config.telegram_channel_id.clone(),
+                "storage_provider" => config.storage_provider.clone(),
+                "tg_storage_bot_token" => config.tg_storage_bot_token.clone(),
+                "tg_storage_channel_id" => config.tg_storage_channel_id.clone(),
                 "torrentio_base_url" => config.torrentio_base_url.clone(),
                 "public_base_url" => Some(config.public_base_url.clone()),
                 _ => None,
@@ -43,7 +47,8 @@ pub async fn get_settings(
 
         if let Some(v) = value {
             let display = match key {
-                "gh_token" | "discord_bot_token" | "telegram_bot_token" | "auth_secret" => {
+                "gh_token" | "discord_bot_token" | "telegram_bot_token" | "tg_storage_bot_token"
+                | "auth_secret" => {
                     mask_token(&v)
                 }
                 _ => v,
@@ -87,6 +92,15 @@ pub async fn update_settings(
         }
         if let Some(v) = queries::get_setting(&state.db, "telegram_channel_id").await? {
             config.telegram_channel_id = Some(v);
+        }
+        if let Some(v) = queries::get_setting(&state.db, "storage_provider").await? {
+            config.storage_provider = Some(v);
+        }
+        if let Some(v) = queries::get_setting(&state.db, "tg_storage_bot_token").await? {
+            config.tg_storage_bot_token = Some(v);
+        }
+        if let Some(v) = queries::get_setting(&state.db, "tg_storage_channel_id").await? {
+            config.tg_storage_channel_id = Some(v);
         }
         if let Some(v) = queries::get_setting(&state.db, "torrentio_base_url").await? {
             config.torrentio_base_url = Some(v);

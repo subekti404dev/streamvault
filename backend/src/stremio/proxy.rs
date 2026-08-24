@@ -201,16 +201,14 @@ async fn resolve_tg_url(state: &Arc<AppState>, file_id: &str) -> Option<String> 
         }
     }
 
-    let bot_token = sqlx::query_scalar::<_, String>(
-        "SELECT value FROM app_settings WHERE key = 'telegram_bot_token'",
-    )
-    .fetch_optional(&state.db)
-    .await
-    .ok()?
-    .unwrap_or_default();
+    let bot_token = crate::pipeline::trigger::get_storage_tg_credential(state, "tg_storage_bot_token")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     if bot_token.is_empty() {
-        tracing::warn!("resolve_tg_url: telegram_bot_token not configured");
+        tracing::warn!("resolve_tg_url: Telegram storage bot token not configured");
         return None;
     }
 
