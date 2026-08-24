@@ -378,7 +378,7 @@ export function getTorrentVerdicts(db: DrizzleDB, infohashes: string[]): Map<str
 
 export function upsertTorrentVerdict(
   db: DrizzleDB,
-  v: { infohash: string; verified: boolean; safe: boolean; reason?: string | null; name?: string | null; fileCount?: number },
+  v: { infohash: string; verified: boolean; safe: boolean; reason?: string | null; name?: string | null; fileCount?: number; filesJson?: string | null },
 ): void {
   db.insert(torrentVerdicts)
     .values({
@@ -388,6 +388,7 @@ export function upsertTorrentVerdict(
       reason: v.reason ?? null,
       name: v.name ?? null,
       fileCount: v.fileCount ?? 0,
+      filesJson: v.filesJson ?? null,
     })
     .onConflictDoUpdate({
       target: torrentVerdicts.infohash,
@@ -397,10 +398,37 @@ export function upsertTorrentVerdict(
         reason: v.reason ?? null,
         name: v.name ?? null,
         fileCount: v.fileCount ?? 0,
+        filesJson: v.filesJson ?? null,
         checkedAt: sql`(datetime('now'))`,
       },
     })
     .run();
+}
+
+export interface TorrentVerdictFull {
+  infohash: string;
+  verified: boolean;
+  safe: boolean;
+  reason: string | null;
+  name: string | null;
+  fileCount: number;
+  filesJson: string | null;
+}
+
+export function getTorrentVerdictFull(db: DrizzleDB, infohash: string): TorrentVerdictFull | undefined {
+  const row = db.select().from(torrentVerdicts)
+    .where(eq(torrentVerdicts.infohash, infohash))
+    .get();
+  if (!row) return undefined;
+  return {
+    infohash: row.infohash,
+    verified: row.verified === 1,
+    safe: row.safe === 1,
+    reason: row.reason,
+    name: row.name,
+    fileCount: row.fileCount,
+    filesJson: row.filesJson,
+  };
 }
 
 // ── Cinemeta Cache ──

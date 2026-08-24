@@ -29,6 +29,13 @@
       "when": 1787640000000,
       "tag": "0003_torrent_verdicts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787660000000,
+      "tag": "0004_verdict_files",
+      "breakpoints": true
     }
   ]
 }

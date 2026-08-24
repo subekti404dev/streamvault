@@ -87,5 +87,6 @@ export const torrentVerdicts = sqliteTable("torrent_verdicts", {
   reason: text("reason"),
   name: text("name"),
   fileCount: integer("file_count").notNull().default(0),
+  filesJson: text("files_json"),
   checkedAt: text("checked_at").notNull().default(sql`(datetime('now'))`),
 });

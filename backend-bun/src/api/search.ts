@@ -385,6 +385,7 @@ async function applyVerdicts(
         reason: safety.reason ?? null,
         name: res.value.name,
         fileCount: res.value.files.length,
+        filesJson: JSON.stringify(res.value.files),
       });
       verdicts.set(ih, { verified: true, safe: safety.safe });
     });

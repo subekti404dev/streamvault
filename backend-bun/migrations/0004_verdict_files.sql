@@ -1,0 +1,1 @@
+ALTER TABLE `torrent_verdicts` ADD COLUMN `files_json` text;

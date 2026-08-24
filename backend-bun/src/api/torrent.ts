@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { badRequest } from "../error";
+import * as queries from "../db/queries";
 
 interface InspectRequest {
   infohash: string;
@@ -234,10 +235,37 @@ export async function inspectTorrent(c: Context<AppBindings>): Promise<Response>
   }
 
   const infohash = body.infohash.toLowerCase();
+
+  // Fast path: verdict cache (populated by search validation). itorrents
+  // throttles bursts, so never re-fetch what we already know.
+  const cached = queries.getTorrentVerdictFull(c.var.db, infohash);
+  if (cached?.verified && cached.filesJson) {
+    try {
+      const files = JSON.parse(cached.filesJson) as TorrentFileEntry[];
+      return c.json({
+        name: cached.name ?? "unknown",
+        files,
+        safe: cached.safe,
+        ...(cached.reason ? { reason: cached.reason } : {}),
+      } satisfies InspectResponse);
+    } catch {
+      // corrupted cache entry — fall through to live fetch
+    }
+  }
+
   const meta = await fetchTorrentMeta(infohash);
   if (!meta) throw badRequest("Torrent metadata not available on public cache");
 
   const safety = analyzeTorrentSafety(meta.name, meta.files);
+  queries.upsertTorrentVerdict(c.var.db, {
+    infohash,
+    verified: true,
+    safe: safety.safe,
+    reason: safety.reason ?? null,
+    name: meta.name,
+    fileCount: meta.files.length,
+    filesJson: JSON.stringify(meta.files),
+  });
 
   return c.json({ ...meta, ...safety } satisfies InspectResponse);
 }
