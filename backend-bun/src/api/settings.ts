@@ -7,13 +7,15 @@ const SETTING_KEYS = [
   "gh_token", "gh_repo",
   "discord_bot_token", "discord_channel_id", "discord_channel_ids",
   "telegram_bot_token", "telegram_channel_id",
+  "storage_provider",
+  "tg_storage_bot_token", "tg_storage_channel_id",
   "notifications_enabled",
   "torrentio_base_url",
   "public_base_url",
   "stremio_addon_id", "stremio_addon_name", "stremio_metadata_url",
 ] as const;
 
-const SENSITIVE_KEYS: Record<string, true> = { gh_token: true, discord_bot_token: true, telegram_bot_token: true, auth_secret: true };
+const SENSITIVE_KEYS: Record<string, true> = { gh_token: true, discord_bot_token: true, telegram_bot_token: true, tg_storage_bot_token: true, auth_secret: true };
 
 // ponytail: single mask function, matches Rust behavior exactly
 function maskToken(token: string): string {
@@ -30,6 +32,9 @@ function configValue(config: AppBindings["Variables"]["config"], key: string): s
     case "discord_channel_ids": return config.discordChannelIds;
     case "telegram_bot_token": return config.telegramBotToken;
     case "telegram_channel_id": return config.telegramChannelId;
+    case "storage_provider": return config.storageProvider;
+    case "tg_storage_bot_token": return config.tgStorageBotToken;
+    case "tg_storage_channel_id": return config.tgStorageChannelId;
     case "torrentio_base_url": return config.torrentioBaseUrl;
     case "public_base_url": return config.publicBaseUrl;
     default: return undefined;
@@ -87,6 +92,9 @@ export async function updateSettings(c: Context<AppBindings>) {
       case "discord_channel_ids": config.discordChannelIds = finalValue; break;
       case "telegram_bot_token": config.telegramBotToken = finalValue; break;
       case "telegram_channel_id": config.telegramChannelId = finalValue; break;
+      case "storage_provider": config.storageProvider = finalValue; break;
+      case "tg_storage_bot_token": config.tgStorageBotToken = finalValue; break;
+      case "tg_storage_channel_id": config.tgStorageChannelId = finalValue; break;
       case "torrentio_base_url": config.torrentioBaseUrl = finalValue; break;
       case "public_base_url": config.publicBaseUrl = finalValue; break;
       case "auth_secret": config.authSecret = finalValue; break;

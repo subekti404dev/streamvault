@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { hlsChunks } from "../db/schema";
 import { notFound } from "../error";
 import * as queries from "../db/queries";
+import { getStorageTgCredential } from "../pipeline/trigger";
 
 function resolveBaseUrl(c: Context<AppBindings>): string {
   const host = c.req.header("x-forwarded-host");
@@ -35,7 +36,7 @@ export async function playlistHandler(c: Context<AppBindings>) {
   const token = extractToken(c);
   const qs = token ? `?token=${token}` : "";
   const allChunks = queries.getHlsChunks(c.var.db, jobId);
-  const tsChunks = allChunks.filter((ch) => ch.filename.endsWith(".ts") && ch.discordUrl != null);
+  const tsChunks = allChunks.filter((ch) => ch.filename.endsWith(".ts") && (ch.discordUrl != null || ch.tgFileId != null));
 
   if (tsChunks.length === 0) {
     throw notFound("No HLS segments found");
@@ -107,21 +108,45 @@ export async function chunkHandler(c: Context<AppBindings>) {
   const filename = c.req.param("filename")!;
 
   const rows = c.var.db
-    .select({ discordUrl: hlsChunks.discordUrl, discordMessageId: hlsChunks.discordMessageId })
+    .select({
+      discordUrl: hlsChunks.discordUrl,
+      discordMessageId: hlsChunks.discordMessageId,
+      tgFileId: hlsChunks.tgFileId,
+      storageProvider: hlsChunks.storageProvider,
+    })
     .from(hlsChunks)
     .where(and(eq(hlsChunks.jobId, jobId), eq(hlsChunks.filename, filename)))
     .all();
 
   const row = rows[0];
-  if (!row?.discordUrl) {
+  if (!row) {
     return c.json({ error: "segment not found" }, 404);
   }
 
-  const storedUrl: string = row.discordUrl;
-  const msgId = row.discordMessageId ?? null;
-
   const rangeHeader = c.req.header("range");
   const rangeValue = rangeHeader?.startsWith("bytes=") ? rangeHeader.slice(6) : undefined;
+
+  // Telegram path — Bot API getFile, stateless HTTP like Discord
+  if (row.storageProvider === "telegram") {
+    const fileId = row.tgFileId;
+    if (!fileId) {
+      return c.json({ error: "telegram segment missing file_id" }, 502);
+    }
+    const url = await resolveTgUrl(c, fileId);
+    if (!url) {
+      return c.json({ error: "failed to resolve telegram file" }, 502);
+    }
+    const result = await tryFetchChunk(url, rangeValue);
+    if (result) return result;
+    console.log(`[proxy] telegram fetch failed for jobId=${jobId} filename=${filename}`);
+    return c.json({ error: "segment unavailable", details: "Telegram download failed" }, 502);
+  }
+
+  const storedUrl: string | null = row.discordUrl;
+  if (!storedUrl) {
+    return c.json({ error: "segment not found" }, 404);
+  }
+  const msgId = row.discordMessageId ?? null;
 
   const result = await tryFetchChunk(storedUrl, rangeValue);
   if (result) return result;
@@ -222,6 +247,56 @@ async function refreshDiscordUrl(
     return url;
   } catch (e) {
     console.log(`[proxy] fetch error for chunk:`, e);
+    return null;
+  }
+}
+
+// ── Telegram (Bot API) chunk proxy ─────────────────────────────────────
+// getFile → direct download URL, valid ~1h. Cache URL briefly so range
+// seeks on the same segment don't re-hit getFile.
+
+const TG_URL_CACHE = new Map<string, { url: string; at: number }>();
+const TG_CACHE_TTL_MS = 3000 * 1000; // ~50 min (Bot API URLs valid ~1h)
+const TG_CACHE_MAX_ENTRIES = 512;
+
+async function resolveTgUrl(c: Context<AppBindings>, fileId: string): Promise<string | null> {
+  const cached = TG_URL_CACHE.get(fileId);
+  if (cached && Date.now() - cached.at < TG_CACHE_TTL_MS) {
+    return cached.url;
+  }
+
+  const botToken =
+    queries.getSetting(c.var.db, "tg_storage_bot_token") ||
+    c.var.config.tgStorageBotToken ||
+    getStorageTgCredential(c, "tg_storage_bot_token") ||
+    "";
+  if (!botToken) {
+    console.log("[proxy] telegram storage bot token not configured");
+    return null;
+  }
+
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    if (!resp.ok) {
+      console.log(`[proxy] telegram getFile returned ${resp.status}`);
+      return null;
+    }
+    const body = await resp.json() as Record<string, unknown>;
+    const result = body.result as Record<string, unknown> | undefined;
+    const filePath = result?.file_path;
+    if (typeof filePath !== "string") return null;
+
+    const url = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+
+    if (TG_URL_CACHE.size >= TG_CACHE_MAX_ENTRIES) {
+      const oldest = TG_URL_CACHE.keys().next().value;
+      if (oldest !== undefined) TG_URL_CACHE.delete(oldest);
+    }
+    TG_URL_CACHE.set(fileId, { url, at: Date.now() });
+
+    return url;
+  } catch (e) {
+    console.log("[proxy] telegram getFile error:", e);
     return null;
   }
 }

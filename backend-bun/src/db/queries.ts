@@ -73,6 +73,8 @@ export interface HlsChunkRow {
   discordMessageId: string | null;
   durationSeconds: number | null;
   fileSizeBytes: number | null;
+  tgFileId: string | null;
+  storageProvider: string;
   createdAt: string;
 }
 
@@ -84,6 +86,7 @@ export interface NewHlsChunk {
   discordMessageId: string | null;
   durationSeconds: number | null;
   fileSizeBytes: number | null;
+  tgFileId?: string | null;
 }
 
 export interface CinemetaCacheRow {
@@ -341,6 +344,8 @@ export function insertHlsChunk(db: DrizzleDB, chunk: NewHlsChunk): void {
     discordMessageId: chunk.discordMessageId,
     durationSeconds: chunk.durationSeconds,
     fileSizeBytes: chunk.fileSizeBytes,
+    tgFileId: chunk.tgFileId ?? null,
+    storageProvider: chunk.tgFileId ? "telegram" : "discord",
   }).run();
 }
 

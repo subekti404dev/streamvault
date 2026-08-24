@@ -55,6 +55,8 @@ export const hlsChunks = sqliteTable("hls_chunks", {
   discordMessageId: text("discord_message_id"),
   durationSeconds: real("duration_seconds"),
   fileSizeBytes: integer("file_size_bytes"),
+  tgFileId: text("tg_file_id"),
+  storageProvider: text("storage_provider").notNull().default("discord"),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 }, (t) => ({
   jobIdIdx: index("idx_hls_chunks_job_id").on(t.jobId),

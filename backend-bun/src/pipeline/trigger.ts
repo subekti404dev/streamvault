@@ -18,6 +18,9 @@ function configValue(config: AppBindings["Variables"]["config"], key: string): s
     case "discord_channel_ids": return config.discordChannelIds;
     case "telegram_bot_token": return config.telegramBotToken;
     case "telegram_channel_id": return config.telegramChannelId;
+    case "storage_provider": return config.storageProvider;
+    case "tg_storage_bot_token": return config.tgStorageBotToken;
+    case "tg_storage_channel_id": return config.tgStorageChannelId;
     case "torrentio_base_url": return config.torrentioBaseUrl;
     default: return undefined;
   }
@@ -27,6 +30,16 @@ function getSettingOrEnv(c: Context<AppBindings>, key: string): string | undefin
   const dbVal = queries.getSetting(c.var.db, key);
   if (dbVal) return dbVal;
   return configValue(c.var.config, key);
+}
+
+// Resolve a Telegram credential for HLS chunk storage. Prefers the dedicated
+// tg_storage_* setting/env, falls back to the shared telegram_* credentials
+// (notifications) for backward compatibility.
+export function getStorageTgCredential(c: Context<AppBindings>, key: "tg_storage_bot_token" | "tg_storage_channel_id"): string | undefined {
+  const dedicated = getSettingOrEnv(c, key);
+  if (dedicated && dedicated.trim()) return dedicated;
+  const legacy = key === "tg_storage_bot_token" ? "telegram_bot_token" : "telegram_channel_id";
+  return getSettingOrEnv(c, legacy);
 }
 
 async function fetchGhRunId(
@@ -109,8 +122,23 @@ async function triggerPipeline(
   }
   const baseUrl = c.var.config.publicBaseUrl;
   const callbackToken = c.var.config.authSecret;
-  const discordChannel = await getDiscordChannel(c, job.id);
-  const discordToken = getSettingOrEnv(c, "discord_bot_token") || "";
+
+  const storageProvider = getSettingOrEnv(c, "storage_provider") || "discord";
+  const isTelegram = storageProvider === "telegram";
+
+  let discordToken = "";
+  let discordChannel = "";
+  let tgBotToken = "";
+  let tgChannelId = "";
+  if (isTelegram) {
+    tgBotToken = getStorageTgCredential(c, "tg_storage_bot_token") || "";
+    if (!tgBotToken) throw badRequest("Telegram storage bot token not configured");
+    tgChannelId = getStorageTgCredential(c, "tg_storage_channel_id") || "";
+    if (!tgChannelId) throw badRequest("Telegram storage channel ID not configured");
+  } else {
+    discordChannel = await getDiscordChannel(c, job.id);
+    discordToken = getSettingOrEnv(c, "discord_bot_token") || "";
+  }
 
   const url =
     `https://api.github.com/repos/${ghRepo}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
@@ -123,8 +151,11 @@ async function triggerPipeline(
       torrent_name: "",  // ponytail: not used, file_idx only
       callback_url: baseUrl,
       callback_token: callbackToken,
+      storage_provider: storageProvider,
       discord_bot_token: discordToken,
       discord_channel_id: discordChannel,
+      tg_bot_token: tgBotToken,
+      tg_channel_id: tgChannelId,
     },
   };
 
@@ -153,17 +184,20 @@ async function triggerPipeline(
     (await fetchGhRunId(ghToken, ghRepo, WORKFLOW_FILE)) ?? "pending";
 
   queries.updateJobGhRun(c.var.db, job.id, ghRunId);
-  c.var.db
-    .update(jobs)
-    .set({ discordChannelId: discordChannel })
-    .where(eq(jobs.id, job.id))
-    .run();
+  if (!isTelegram) {
+    c.var.db
+      .update(jobs)
+      .set({ discordChannelId: discordChannel })
+      .where(eq(jobs.id, job.id))
+      .run();
+  }
+  const dest = isTelegram ? tgChannelId : discordChannel;
   queries.insertJobEvent(
     c.var.db,
     job.id,
     null,
     "status_change",
-    `Pipeline triggered (run_id: ${ghRunId}, channel: ${discordChannel})`,
+    `Pipeline triggered (run_id: ${ghRunId}, provider: ${storageProvider}, channel: ${dest})`,
     null,
   );
 

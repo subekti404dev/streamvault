@@ -29,15 +29,20 @@ export async function progressCallback(c: Context<AppBindings>): Promise<Respons
   // Insert HLS chunk info if present
   if (body.chunk) {
     const chunk = body.chunk as Record<string, any>;
-    queries.insertHlsChunk(c.var.db, {
-      jobId: id,
-      chunkIndex: chunk.chunk_index ?? chunk.index ?? 0,
-      filename: chunk.filename ?? "",
-      discordUrl: chunk.discord_url ?? null,
-      discordMessageId: chunk.discord_message_id ?? null,
-      durationSeconds: chunk.duration_seconds ?? null,
-      fileSizeBytes: chunk.file_size_bytes ?? null,
-    });
+    const discordUrl = chunk.discord_url ?? null;
+    const tgFileId = chunk.tg_file_id ?? null;
+    if (discordUrl || tgFileId) {
+      queries.insertHlsChunk(c.var.db, {
+        jobId: id,
+        chunkIndex: chunk.chunk_index ?? chunk.index ?? 0,
+        filename: chunk.filename ?? "",
+        discordUrl,
+        discordMessageId: chunk.discord_message_id ?? null,
+        durationSeconds: chunk.duration_seconds ?? null,
+        fileSizeBytes: chunk.file_size_bytes ?? null,
+        tgFileId,
+      });
+    }
   }
 
   // Log event — FK guard: job may not exist
