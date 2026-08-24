@@ -7,9 +7,9 @@ interface EztvTorrent {
   hash?: string;
   title?: string;
   filename?: string;
-  size_bytes?: number;
-  seeds?: number;
-  peers?: number;
+  size_bytes?: number | string;
+  seeds?: number | string;
+  peers?: number | string;
   season_number?: number | string;
   episode_number?: number | string;
   imdb_id?: string;
@@ -20,6 +20,15 @@ function numericImdb(imdbId: string): string {
 }
 
 const MAX_PAGES = 5;
+
+function toNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
 
 export const eztvProvider: TorrentProvider = {
   id: "eztv",
@@ -65,8 +74,8 @@ export const eztvProvider: TorrentProvider = {
         results.push({
           infoHash: t.hash.toLowerCase(),
           title,
-          sizeBytes: typeof t.size_bytes === "number" ? t.size_bytes : 0,
-          seeders: t.seeds ?? 0,
+          sizeBytes: toNum(t.size_bytes),
+          seeders: toNum(t.seeds),
           provider: "eztv",
         });
       }
