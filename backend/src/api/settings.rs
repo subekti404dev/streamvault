@@ -16,6 +16,7 @@ pub async fn get_settings(
     let keys = [
         "gh_token", "gh_repo",
         "discord_bot_token", "discord_channel_id", "discord_channel_ids",
+        "storage_provider",
         "telegram_bot_token", "telegram_channel_id",
         "notifications_enabled",
         "torrentio_base_url",

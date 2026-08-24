@@ -3011,6 +3011,7 @@ dependencies = [
  "hex 0.4.3",
  "hmac",
  "librqbit",
+ "parking_lot",
  "reqwest",
  "serde",
  "serde_json",

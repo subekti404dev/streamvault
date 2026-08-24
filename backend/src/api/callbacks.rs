@@ -16,20 +16,23 @@ pub async fn progress_callback(
 
     // Insert chunk info if present
     if let Some(chunk) = body.get("chunk") {
-        if let (Some(filename), Some(discord_url)) = (
-            chunk.get("filename").and_then(|v| v.as_str()),
-            chunk.get("discord_url").and_then(|v| v.as_str()),
-        ) {
+        let filename = chunk.get("filename").and_then(|v| v.as_str());
+        let discord_url = chunk.get("discord_url").and_then(|v| v.as_str());
+        let tg_file_id = chunk.get("tg_file_id").and_then(|v| v.as_str());
+
+        // Insert chunk info if present for either provider
+        if let (Some(filename), Some(_)) = (filename, discord_url.or(tg_file_id)) {
             let chunk_idx = chunk.get("chunk_index").and_then(|v| v.as_i64()).unwrap_or(0);
             let duration = chunk.get("duration_seconds").and_then(|v| v.as_f64());
             queries::insert_hls_chunk(&state.db, &queries::NewHlsChunk {
                 job_id: id.clone(),
                 chunk_index: chunk_idx,
                 filename: filename.to_string(),
-                discord_url: Some(discord_url.to_string()),
+                discord_url: discord_url.map(String::from),
                 discord_message_id: chunk.get("discord_message_id").and_then(|v| v.as_str()).map(String::from),
                 duration_seconds: duration,
                 file_size_bytes: None,
+                tg_file_id: tg_file_id.map(String::from),
             }).await?;
         }
     }

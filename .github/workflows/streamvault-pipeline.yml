@@ -55,6 +55,21 @@ on:
         required: false
         type: string
         default: ''
+      storage_provider:
+        description: 'Storage provider: discord (default) or telegram'
+        required: false
+        type: string
+        default: ''
+      tg_bot_token:
+        description: 'Telegram bot token for HLS upload'
+        required: false
+        type: string
+        default: ''
+      tg_channel_id:
+        description: 'Telegram channel ID for HLS upload'
+        required: false
+        type: string
+        default: ''
 env:
   CALLBACK_URL: ${{ inputs.callback_url }}
   CALLBACK_TOKEN: ${{ inputs.callback_token }}
@@ -217,7 +232,21 @@ jobs:
           .github/scripts/callback.sh "${{ inputs.job_id }}" "progress" \
             '{"phase":"transcode","progress_pct":100}'
 
+      - name: Upload to Telegram
+        if: inputs.storage_provider == 'telegram'
+        env:
+          TG_BOT_TOKEN: ${{ inputs.tg_bot_token }}
+          TG_CHANNEL_ID: ${{ inputs.tg_channel_id }}
+        run: |
+          chmod +x .github/scripts/upload-to-telegram.sh
+          .github/scripts/upload-to-telegram.sh \
+            "${{ inputs.job_id }}" \
+            "${{ inputs.callback_url }}" \
+            "${{ inputs.callback_token }}" \
+            "./hls"
+
       - name: Upload to Discord
+        if: inputs.storage_provider != 'telegram'
         env:
           DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
           DISCORD_CHANNEL_ID: ${{ inputs.discord_channel_id }}

@@ -80,10 +80,20 @@ pub async fn trigger_pipeline(
         gh_repo
     );
 
-    let discord_token = get_setting_or_env(state, "discord_bot_token").await?.unwrap_or_default();
+    let storage_provider = get_setting_or_env(state, "storage_provider").await?.unwrap_or_default();
+    let is_telegram = storage_provider == "telegram";
 
-    // Pick channel: try multi-channel IDs, fallback to single channel ID
-    let discord_channel = get_discord_channel(state, &job.id).await?;
+    let (discord_token, discord_channel, tg_bot_token, tg_channel_id) = if is_telegram {
+        let tg_bot_token = get_setting_or_env(state, "telegram_bot_token").await?
+            .ok_or_else(|| AppError::BadRequest("Telegram bot token not configured".into()))?;
+        let tg_channel_id = get_setting_or_env(state, "telegram_channel_id").await?
+            .ok_or_else(|| AppError::BadRequest("Telegram channel ID not configured".into()))?;
+        (String::new(), String::new(), tg_bot_token, tg_channel_id)
+    } else {
+        let discord_token = get_setting_or_env(state, "discord_bot_token").await?.unwrap_or_default();
+        let discord_channel = get_discord_channel(state, &job.id).await?;
+        (discord_token, discord_channel, String::new(), String::new())
+    };
 
     let body = serde_json::json!({
         "ref": "main",
@@ -94,8 +104,11 @@ pub async fn trigger_pipeline(
             "torrent_name": job.torrent_name.clone().unwrap_or_default(),
             "callback_url": base_url,
             "callback_token": callback_token,
+            "storage_provider": storage_provider,
             "discord_bot_token": discord_token,
             "discord_channel_id": discord_channel,
+            "tg_bot_token": tg_bot_token,
+            "tg_channel_id": tg_channel_id,
             "skip_download": skip_download.to_string(),
             "skip_transcode": skip_transcode.to_string(),
             "checkpoint_dl_url": job.gh_artifact_dl_url.clone().unwrap_or_default(),
@@ -131,14 +144,17 @@ pub async fn trigger_pipeline(
     };
 
     queries::update_job_gh_run(&state.db, &job.id, &gh_run_id).await?;
-    // Save channel_id to job
-    sqlx::query("UPDATE jobs SET discord_channel_id = ? WHERE id = ?")
-        .bind(&discord_channel)
-        .bind(&job.id)
-        .execute(&state.db).await?;
+    // Save channel_id to job (Discord only)
+    if !is_telegram {
+        sqlx::query("UPDATE jobs SET discord_channel_id = ? WHERE id = ?")
+            .bind(&discord_channel)
+            .bind(&job.id)
+            .execute(&state.db).await?;
+    }
+    let dest = if is_telegram { tg_channel_id.as_str() } else { discord_channel.as_str() };
     queries::insert_job_event(
         &state.db, &job.id, None, "status_change",
-        &format!("Pipeline triggered (run_id: {gh_run_id}, channel: {discord_channel})"), None,
+        &format!("Pipeline triggered (run_id: {gh_run_id}, provider: {storage_provider}, channel: {dest})"), None,
     ).await?;
 
     Ok("pending".to_string())

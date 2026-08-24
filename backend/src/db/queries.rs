@@ -61,6 +61,10 @@ pub struct HlsChunk {
     pub duration_seconds: Option<f64>,
     pub file_size_bytes: Option<i64>,
     pub created_at: Option<String>,
+    pub tg_file_id: Option<String>,
+    // ponytail: derive provider from which field is set instead of a
+    // caller-supplied enum; add a real column read if a third provider lands.
+    pub storage_provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::FromRow)]
@@ -108,6 +112,7 @@ pub struct NewHlsChunk {
     pub discord_message_id: Option<String>,
     pub duration_seconds: Option<f64>,
     pub file_size_bytes: Option<i64>,
+    pub tg_file_id: Option<String>,
 }
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct LibraryJob {
@@ -319,11 +324,12 @@ pub async fn get_job_events(pool: &SqlitePool, job_id: &str) -> AppResult<Vec<Jo
 
 pub async fn insert_hls_chunk(pool: &SqlitePool, chunk: &NewHlsChunk) -> AppResult<()> {
     sqlx::query(
-        "INSERT INTO hls_chunks (job_id, chunk_index, filename, discord_url, discord_message_id, duration_seconds, file_size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+        "INSERT INTO hls_chunks (job_id, chunk_index, filename, discord_url, discord_message_id, duration_seconds, file_size_bytes, tg_file_id, storage_provider, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ?9 IS NOT NULL THEN 'telegram' ELSE 'discord' END, datetime('now'))"
     )
     .bind(&chunk.job_id).bind(chunk.chunk_index).bind(&chunk.filename)
     .bind(&chunk.discord_url).bind(&chunk.discord_message_id)
     .bind(chunk.duration_seconds).bind(chunk.file_size_bytes)
+    .bind(&chunk.tg_file_id).bind(&chunk.tg_file_id)
     .execute(pool).await?;
     Ok(())
 }
@@ -539,4 +545,62 @@ pub async fn get_library_detail(
         },
         jobs,
     })
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    #[tokio::test]
+    async fn insert_derives_storage_provider() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::run_migrations(&pool).await.unwrap();
+
+        insert_job(&pool, &NewJob {
+            id: "j".into(),
+            imdb_id: "tt0000000".into(),
+            media_type: "movie".into(),
+            season: None,
+            episode: None,
+            title: None,
+            poster_url: None,
+            magnet_uri: None,
+            infohash: None,
+            torrent_name: None,
+            file_idx: None,
+            file_size_bytes: None,
+        }).await.unwrap();
+
+        insert_hls_chunk(&pool, &NewHlsChunk {
+            job_id: "j".into(),
+            chunk_index: 0,
+            filename: "a.ts".into(),
+            discord_url: Some("https://x".into()),
+            discord_message_id: Some("1".into()),
+            duration_seconds: Some(1.0),
+            file_size_bytes: None,
+            tg_file_id: None,
+        }).await.unwrap();
+
+        insert_hls_chunk(&pool, &NewHlsChunk {
+            job_id: "j".into(),
+            chunk_index: 1,
+            filename: "b.ts".into(),
+            discord_url: None,
+            discord_message_id: None,
+            duration_seconds: Some(1.0),
+            file_size_bytes: None,
+            tg_file_id: Some("fileid".into()),
+        }).await.unwrap();
+
+        let chunks = get_hls_chunks(&pool, "j").await.unwrap();
+        assert_eq!(chunks[0].storage_provider.as_deref(), Some("discord"));
+        assert_eq!(chunks[0].tg_file_id.as_deref(), None);
+        assert_eq!(chunks[1].storage_provider.as_deref(), Some("telegram"));
+        assert_eq!(chunks[1].tg_file_id.as_deref(), Some("fileid"));
+    }
 }

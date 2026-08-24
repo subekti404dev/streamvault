@@ -9,6 +9,8 @@ use axum::{
 };
 use futures::TryStreamExt;
 use std::sync::Arc;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use crate::{app::AppState, db::queries, error::AppResult};
 
@@ -101,7 +103,7 @@ pub async fn playlist_handler(
     ))
 }
 
-/// Proxy a single HLS segment from Discord CDN with streaming.
+/// Proxy a single HLS segment from Discord CDN or Telegram with streaming.
 /// Supports HTTP Range requests for efficient seeking.
 pub async fn chunk_handler(
     State(state): State<Arc<AppState>>,
@@ -109,8 +111,8 @@ pub async fn chunk_handler(
     req: Request,
 ) -> Response {
     // Look up chunk metadata
-    let chunk: Option<(Option<String>, Option<String>)> = sqlx::query_as::<_, (Option<String>, Option<String>)>(
-        "SELECT discord_url, discord_message_id FROM hls_chunks WHERE job_id = ?1 AND filename = ?2",
+    let chunk: Option<(Option<String>, Option<String>, Option<String>, Option<String>)> = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>, Option<String>)>(
+        "SELECT discord_url, discord_message_id, tg_file_id, storage_provider FROM hls_chunks WHERE job_id = ?1 AND filename = ?2",
     )
     .bind(&job_id)
     .bind(&filename)
@@ -119,7 +121,7 @@ pub async fn chunk_handler(
     .ok()
     .flatten();
 
-    let Some((Some(stored_url), msg_id)) = chunk else {
+    let Some((stored_url, msg_id, tg_file_id, provider)) = chunk else {
         return (StatusCode::NOT_FOUND, "segment not found").into_response();
     };
 
@@ -127,6 +129,25 @@ pub async fn chunk_handler(
     let range_header = req.headers().get("range")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| parse_range(v));
+
+    // Telegram path — Bot API getFile, stateless HTTP like Discord
+    if provider.as_deref() == Some("telegram") {
+        let Some(file_id) = tg_file_id else {
+            return (StatusCode::BAD_GATEWAY, "telegram segment missing file_id").into_response();
+        };
+        return match try_fetch_chunk_tg(&state, &file_id, range_header.as_ref()).await {
+            Ok(resp) => resp,
+            Err(_) => (
+                StatusCode::BAD_GATEWAY,
+                "failed to fetch segment from Telegram",
+            )
+                .into_response(),
+        };
+    }
+
+    let Some(stored_url) = stored_url else {
+        return (StatusCode::NOT_FOUND, "segment not found").into_response();
+    };
 
     match try_fetch_chunk(&stored_url, range_header.as_ref()).await {
         Ok(resp) => resp,
@@ -158,6 +179,75 @@ pub async fn chunk_handler(
 fn parse_range(value: &str) -> Option<String> {
     let range_part = value.strip_prefix("bytes=")?;
     Some(range_part.to_string())
+}
+
+// ── Telegram (Bot API) chunk proxy ─────────────────────────────────────
+// getFile → direct download URL, valid ~1h. Cache URL briefly so range
+// seeks on the same segment don't re-hit getFile.
+
+// ponytail: process-wide FIFO cache, cap 512 entries (~512 live URLs).
+// Add per-account LRU + TTL scrub if a single process serves >512 segments.
+static TG_URL_CACHE: std::sync::LazyLock<parking_lot::Mutex<HashMap<String, (String, Instant)>>> =
+    std::sync::LazyLock::new(|| parking_lot::Mutex::new(HashMap::new()));
+
+/// Resolve a Telegram file_id to a direct download URL via Bot API getFile.
+async fn resolve_tg_url(state: &Arc<AppState>, file_id: &str) -> Option<String> {
+    {
+        let cache = TG_URL_CACHE.lock();
+        if let Some((url, at)) = cache.get(file_id) {
+            if at.elapsed() < Duration::from_secs(3000) {
+                return Some(url.clone());
+            }
+        }
+    }
+
+    let bot_token = sqlx::query_scalar::<_, String>(
+        "SELECT value FROM app_settings WHERE key = 'telegram_bot_token'",
+    )
+    .fetch_optional(&state.db)
+    .await
+    .ok()?
+    .unwrap_or_default();
+
+    if bot_token.is_empty() {
+        tracing::warn!("resolve_tg_url: telegram_bot_token not configured");
+        return None;
+    }
+
+    let url = format!("https://api.telegram.org/bot{bot_token}/getFile");
+    let resp = reqwest::Client::new()
+        .get(&url)
+        .query(&[("file_id", file_id)])
+        .send()
+        .await
+        .ok()?;
+
+    let body: serde_json::Value = resp.json().await.ok()?;
+    let file_path = body.get("result")?.get("file_path")?.as_str()?;
+    let download_url = format!("https://api.telegram.org/file/bot{bot_token}/{file_path}");
+
+    {
+        let mut cache = TG_URL_CACHE.lock();
+        if cache.len() >= 512 {
+            if let Some(oldest) = cache.keys().next().cloned() {
+                cache.remove(&oldest);
+            }
+        }
+        cache.insert(file_id.to_string(), (download_url.clone(), Instant::now()));
+    }
+
+    Some(download_url)
+}
+
+/// Fetch a Telegram chunk: resolve URL (cached) then stream via the shared
+/// Discord-style fetcher, since both are plain HTTPS bytes.
+async fn try_fetch_chunk_tg(
+    state: &Arc<AppState>,
+    file_id: &str,
+    range: Option<&String>,
+) -> Result<Response, ()> {
+    let url = resolve_tg_url(state, file_id).await.ok_or(())?;
+    try_fetch_chunk(&url, range).await
 }
 
 /// Try fetching chunk from Discord with optional Range header.
