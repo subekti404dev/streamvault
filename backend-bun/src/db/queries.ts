@@ -1,5 +1,5 @@
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
-import { jobs, jobEvents, hlsChunks, cinemetaCache, appSettings } from "./schema";
+import { jobs, jobEvents, hlsChunks, cinemetaCache, appSettings, torrentVerdicts } from "./schema";
 import { notFound } from "../error";
 import type { DrizzleDB } from "./index";
 
@@ -355,6 +355,52 @@ export function getHlsChunks(db: DrizzleDB, jobId: string): HlsChunkRow[] {
     .orderBy(hlsChunks.chunkIndex)
     .all();
   return castHlsChunks(rows as unknown as Record<string, unknown>[]);
+}
+
+// ── Torrent Verdicts ──
+
+export interface TorrentVerdict {
+  verified: boolean;
+  safe: boolean;
+}
+
+export function getTorrentVerdicts(db: DrizzleDB, infohashes: string[]): Map<string, TorrentVerdict> {
+  const map = new Map<string, TorrentVerdict>();
+  if (infohashes.length === 0) return map;
+  const rows = db.select().from(torrentVerdicts)
+    .where(inArray(torrentVerdicts.infohash, infohashes))
+    .all();
+  for (const row of rows) {
+    map.set(row.infohash, { verified: row.verified === 1, safe: row.safe === 1 });
+  }
+  return map;
+}
+
+export function upsertTorrentVerdict(
+  db: DrizzleDB,
+  v: { infohash: string; verified: boolean; safe: boolean; reason?: string | null; name?: string | null; fileCount?: number },
+): void {
+  db.insert(torrentVerdicts)
+    .values({
+      infohash: v.infohash,
+      verified: v.verified ? 1 : 0,
+      safe: v.safe ? 1 : 0,
+      reason: v.reason ?? null,
+      name: v.name ?? null,
+      fileCount: v.fileCount ?? 0,
+    })
+    .onConflictDoUpdate({
+      target: torrentVerdicts.infohash,
+      set: {
+        verified: v.verified ? 1 : 0,
+        safe: v.safe ? 1 : 0,
+        reason: v.reason ?? null,
+        name: v.name ?? null,
+        fileCount: v.fileCount ?? 0,
+        checkedAt: sql`(datetime('now'))`,
+      },
+    })
+    .run();
 }
 
 // ── Cinemeta Cache ──

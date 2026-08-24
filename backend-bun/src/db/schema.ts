@@ -79,3 +79,13 @@ export const appSettings = sqliteTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value"),
 });
+
+export const torrentVerdicts = sqliteTable("torrent_verdicts", {
+  infohash: text("infohash").primaryKey(),
+  verified: integer("verified").notNull(),
+  safe: integer("safe").notNull(),
+  reason: text("reason"),
+  name: text("name"),
+  fileCount: integer("file_count").notNull().default(0),
+  checkedAt: text("checked_at").notNull().default(sql`(datetime('now'))`),
+});

@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { badRequest } from "../error";
 import * as queries from "../db/queries";
+import { fetchTorrentMeta, analyzeTorrentSafety } from "./torrent";
 import { triggerPipeline, cancelGhRun } from "../pipeline/trigger";
 import { sendNotification } from "../notifications/telegram";
 import { buildMagnet } from "./search";
@@ -36,6 +37,19 @@ export async function createJob(c: Context<AppBindings>) {
   // ponytail: validate custom magnet URIs to prevent injection into CI pipelines
   if (magnetUri && !magnetUri.startsWith("magnet:?")) {
     throw badRequest("Invalid magnet URI format — must start with magnet:?");
+  }
+
+  // Safety gate: fetch real torrent metadata and reject poisoned/malware uploads.
+  // Fail-open when the .torrent cache is unreachable so availability isn't held
+  // hostage by itorrents.org.
+  const meta = await fetchTorrentMeta(infohash.toLowerCase());
+  if (meta) {
+    const safety = analyzeTorrentSafety(meta.name, meta.files);
+    if (!safety.safe) {
+      throw badRequest(`Torrent rejected (${safety.reason})`);
+    }
+  } else {
+    console.warn(`[queue] could not verify torrent contents for infohash=${infohash}, allowing`);
   }
 
   const jobId = crypto.randomUUID();

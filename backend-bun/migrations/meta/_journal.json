@@ -22,6 +22,13 @@
       "when": 1787635200000,
       "tag": "0002_telegram_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787640000000,
+      "tag": "0003_torrent_verdicts",
+      "breakpoints": true
     }
   ]
 }

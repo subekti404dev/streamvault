@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import type { AppBindings } from "../app";
 import { badRequest, notFound } from "../error";
 import * as queries from "../db/queries";
+import { fetchTorrentMeta, analyzeTorrentSafety } from "./torrent";
 
 interface SearchRequest {
   imdb_id: string;
@@ -30,6 +31,7 @@ export interface TorrentEntry {
   infohash: string;
   magnetUri: string;
   fileIdx: number;
+  verified?: boolean;
 }
 
 const LOW_QUALITY_KEYWORDS = [
@@ -288,7 +290,12 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
       : body.imdb_id;
 
   const torrents = await searchTorrentio(c, body.media_type, streamId);
-  const filtered = filterTorrents(torrents, 5);
+  // Quality-sort a wider slice first, then drop verified-unsafe entries so
+  // deeper healthy candidates can fill the final limit.
+  const candidates = filterTorrents(torrents, VALIDATE_SLICE);
+  const validated = await applyVerdicts(c, candidates);
+  const filtered = validated.slice(0, SEARCH_LIMIT);
+
   return c.json(toSnake({
     meta: {
       title: meta.title ?? body.imdb_id,
@@ -297,4 +304,52 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
     },
     torrents: filtered,
   } satisfies SearchResponse));
+}
+
+const VALIDATE_SLICE = 12;
+const SEARCH_LIMIT = 5;
+const VALIDATE_TIMEOUT_MS = 7_000;
+
+/**
+ * Drop torrents whose real .torrent contents verify as unsafe (executables,
+ * no media). Verdicts are cached per-infohash; unverifiable hashes (cache
+ * miss at itorrents) are kept but flagged `verified: false`.
+ */
+async function applyVerdicts(
+  c: Context<AppBindings>,
+  torrents: TorrentEntry[],
+): Promise<TorrentEntry[]> {
+  if (torrents.length === 0) return torrents;
+
+  const hashes = [...new Set(torrents.map((t) => t.infohash.toLowerCase()))];
+  const verdicts = queries.getTorrentVerdicts(c.var.db, hashes);
+  const missing = hashes.filter((h) => !verdicts.has(h));
+
+  if (missing.length > 0) {
+    const results = await Promise.allSettled(
+      missing.map((ih) => fetchTorrentMeta(ih, VALIDATE_TIMEOUT_MS)),
+    );
+    results.forEach((res, i) => {
+      if (res.status !== "fulfilled" || !res.value) return;
+      const ih = missing[i];
+      const safety = analyzeTorrentSafety(res.value.name, res.value.files);
+      queries.upsertTorrentVerdict(c.var.db, {
+        infohash: ih,
+        verified: true,
+        safe: safety.safe,
+        reason: safety.reason ?? null,
+        name: res.value.name,
+        fileCount: res.value.files.length,
+      });
+      verdicts.set(ih, { verified: true, safe: safety.safe });
+    });
+  }
+
+  return torrents.map((t) => {
+    const v = verdicts.get(t.infohash.toLowerCase());
+    return { ...t, verified: v ? v.verified : false };
+  }).filter((t) => {
+    const v = verdicts.get(t.infohash.toLowerCase());
+    return !(v?.verified && !v.safe);
+  });
 }
