@@ -164,17 +164,6 @@ export function buildMagnet(infohash: string, dn: string): string {
   return `magnet:?${parts.join("&")}`;
 }
 
-function getSettingOrEnv(c: Context<AppBindings>, key: string): string | undefined {
-  const fromDb = queries.getSetting(c.var.db, key);
-  if (fromDb) return fromDb;
-  const val = c.var.config[key as keyof typeof c.var.config];
-  if (typeof val === "string") return val;
-  // settings keys are snake_case, config fields are camelCase
-  const camel = key.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase()) as keyof typeof c.var.config;
-  const v2 = c.var.config[camel];
-  return typeof v2 === "string" ? v2 : undefined;
-}
-
 interface CinemetaMeta {
   imdbId: string;
   mediaType: string;
@@ -233,67 +222,6 @@ async function fetchCinemeta(
   return record;
 }
 
-interface TorrentioStream {
-  infoHash?: string;
-  name?: string;
-  title?: string;
-  description?: string;
-  size?: number;
-  fileIdx?: number;
-  behaviorHints?: { filename?: string; fileIdx?: number; videoSize?: number };
-}
-
-async function searchTorrentio(
-  c: Context<AppBindings>,
-  mediaType: string,
-  streamId: string,
-): Promise<TorrentEntry[]> {
-  // External addon source (Torrentio/Comet) can be disabled entirely — results
-  // then come only from built-in providers.
-  const enabled = (getSettingOrEnv(c, "enable_external_streams") ?? "true") !== "false";
-  if (!enabled) {
-    console.log("[search] external stream source disabled, using local providers only");
-    return [];
-  }
-  const baseUrl = getSettingOrEnv(c, "torrentioBaseUrl") ?? "https://torrentio.strem.fun";
-  const url = `${baseUrl}/stream/${mediaType}/${streamId}.json`;
-  const resp = await fetch(url, { headers: { "User-Agent": "StreamVault/1.0" } });
-  if (!resp.ok) return [];
-  const json = (await resp.json()) as Record<string, unknown>;
-  const streams = Array.isArray(json.streams) ? (json.streams as TorrentioStream[]) : [];
-
-  const torrents: TorrentEntry[] = [];
-  for (const stream of streams) {
-    if (!stream.infoHash) continue;
-    const name = stream.name ?? "Unknown";
-    // Torrentio puts release info in `title`; Comet-style addons put it in
-    // `description` (first line) and omit `size` in favour of videoSize.
-    const title =
-      stream.title
-      ?? stream.description?.split("\n")[0]?.replace(/^📄\s*/, "").trim()
-      ?? stream.infoHash;
-    const filename = stream.behaviorHints?.filename ?? "";
-    const sizeBytes =
-      typeof stream.size === "number" ? stream.size :
-      typeof stream.behaviorHints?.videoSize === "number" ? stream.behaviorHints.videoSize : 0;
-    const fileIdx =
-      typeof stream.behaviorHints?.fileIdx === "number" ? stream.behaviorHints.fileIdx :
-      typeof stream.fileIdx === "number" ? stream.fileIdx : 0;
-
-    torrents.push({
-      name,
-      title,
-      filename,
-      sizeBytes,
-      infohash: stream.infoHash,
-      magnetUri: buildMagnet(stream.infoHash, title),
-      fileIdx,
-    });
-  }
-
-  return torrents;
-}
-
 export async function searchHandler(c: Context<AppBindings>): Promise<Response> {
   const body = (await c.req.json()) as SearchRequest;
 
@@ -303,16 +231,6 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
 
   const meta = await fetchCinemeta(c, body.imdb_id, body.media_type);
 
-  const streamId =
-    body.media_type === "series"
-      ? `${body.imdb_id}:${body.season ?? 1}:${body.episode ?? 1}`
-      : body.imdb_id;
-
-  const torrents = await searchTorrentio(c, body.media_type, streamId);
-
-  // Local built-in providers (YTS/EZTV). Dedup against external results,
-  // keeping the first occurrence (external wins on hash collision).
-  const seen = new Set(torrents.map((t) => t.infohash.toLowerCase()));
   const providerResults = await aggregateProviders(builtinProviders, {
     mediaType: body.media_type === "series" ? "series" : "movie",
     imdbId: body.imdb_id,
@@ -321,19 +239,15 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
     season: body.season,
     episode: body.episode,
   });
-  for (const r of providerResults) {
-    if (seen.has(r.infoHash)) continue;
-    seen.add(r.infoHash);
-    torrents.push({
-      name: `[P2P] ${r.provider.toUpperCase()}`,
-      title: r.title,
-      filename: "",
-      sizeBytes: r.sizeBytes,
-      infohash: r.infoHash,
-      magnetUri: buildMagnet(r.infoHash, r.title),
-      fileIdx: 0,
-    });
-  }
+  const torrents: TorrentEntry[] = providerResults.map((r) => ({
+    name: `[P2P] ${r.provider.toUpperCase()}`,
+    title: r.title,
+    filename: "",
+    sizeBytes: r.sizeBytes,
+    infohash: r.infoHash,
+    magnetUri: buildMagnet(r.infoHash, r.title),
+    fileIdx: 0,
+  }));
 
   // Quality-sort a wider slice first, then drop verified-unsafe entries so
   // deeper healthy candidates can fill the final limit.

@@ -10,8 +10,6 @@ const SETTING_KEYS = [
   "storage_provider",
   "tg_storage_bot_token", "tg_storage_channel_id",
   "notifications_enabled",
-  "torrentio_base_url",
-  "enable_external_streams",
   "public_base_url",
   "stremio_addon_id", "stremio_addon_name", "stremio_metadata_url",
 ] as const;
@@ -36,8 +34,7 @@ function configValue(config: AppBindings["Variables"]["config"], key: string): s
     case "storage_provider": return config.storageProvider;
     case "tg_storage_bot_token": return config.tgStorageBotToken;
     case "tg_storage_channel_id": return config.tgStorageChannelId;
-    case "enable_external_streams": return config.enableExternalStreams;
-    case "torrentio_base_url": return config.torrentioBaseUrl;
+    case "tg_storage_channel_id": return config.tgStorageChannelId;
     case "public_base_url": return config.publicBaseUrl;
     default: return undefined;
   }
@@ -97,8 +94,6 @@ export async function updateSettings(c: Context<AppBindings>) {
       case "storage_provider": config.storageProvider = finalValue; break;
       case "tg_storage_bot_token": config.tgStorageBotToken = finalValue; break;
       case "tg_storage_channel_id": config.tgStorageChannelId = finalValue; break;
-      case "enable_external_streams": config.enableExternalStreams = finalValue; break;
-      case "torrentio_base_url": config.torrentioBaseUrl = finalValue; break;
       case "public_base_url": config.publicBaseUrl = finalValue; break;
       case "auth_secret": config.authSecret = finalValue; break;
     }

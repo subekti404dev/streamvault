@@ -22,7 +22,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let customMagnet = $state('');
   let customTitle = $state('');
   let customAdding = $state(false);
-  let sourceTab = $state<'torrentio' | 'custom'>('torrentio');
+  let sourceTab = $state<'results' | 'custom'>('results');
   let searchTab = $state<'movie' | 'series'>('movie');
   let inspecting = $state(false);
   let inspectedFiles = $state<{index: number; name: string; size_bytes: number}[]>([]);
@@ -213,7 +213,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     inspectingTorrent = infohash;
     try {
       const resp = await api.inspectTorrent(infohash);
-      // Match Torrentio's file_idx or filename to pre-select the right file
+      // Match provider file_idx or filename to pre-select the right file
       let matchedIdx = torrent.file_idx;
       if (torrent.filename) {
         const byName = resp.files.findIndex(f => f.name.endsWith(torrent.filename) || torrent.filename.endsWith(f.name));
@@ -489,10 +489,10 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     <!-- Source tabs -->
     <div class="source-tabs">
       <button
-        class="tab-btn {sourceTab === 'torrentio' ? 'active' : ''}"
-        onclick={() => sourceTab = 'torrentio'}
+        class="tab-btn {sourceTab === 'results' ? 'active' : ''}"
+        onclick={() => sourceTab = 'results'}
       >
-        Torrentio ({result.torrents.length})
+        Results ({result.torrents.length})
       </button>
       <button
         class="tab-btn {sourceTab === 'custom' ? 'active' : ''}"
@@ -502,7 +502,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       </button>
     </div>
 
-    {#if sourceTab === 'torrentio'}
+    {#if sourceTab === 'results'}
       {#if result.torrents.length === 0}
         <div class="no-torrents-card">
           <p class="text-muted">No torrents found for this title.</p>
