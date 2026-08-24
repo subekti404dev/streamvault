@@ -26,6 +26,8 @@
     { key: 'storage_provider', label: 'Storage Provider (discord | telegram)', type: 'text', section: 'Telegram Storage', placeholder: 'discord' },
     { key: 'tg_storage_bot_token', label: 'Telegram Bot Token (HLS Storage)', type: 'password', section: 'Telegram Storage' },
     { key: 'tg_storage_channel_id', label: 'Telegram Channel ID (HLS Storage)', type: 'text', section: 'Telegram Storage' },
+    { key: 'enable_external_streams', label: 'Enable External Stream Source (Torrentio/Comet)', type: 'checkbox', section: 'Torrent Sources' },
+    { key: 'torrentio_base_url', label: 'External Stream Source URL (Torrentio/Comet)', type: 'text', section: 'Torrent Sources', placeholder: 'https://torrentio.strem.fun' },
     { key: 'torrentio_base_url', label: 'Torrentio Proxy URL', type: 'text', section: 'Torrentio' },
     { key: 'public_base_url', label: 'Public Base URL', type: 'text', section: 'Stremio' },
     { key: 'stremio_addon_id', label: 'Custom Addon ID', type: 'text', section: 'Stremio' },

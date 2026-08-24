@@ -12,6 +12,7 @@ export interface Config {
   storageProvider?: string;
   tgStorageBotToken?: string;
   tgStorageChannelId?: string;
+  enableExternalStreams?: string;
   torrentioBaseUrl?: string;
   dashboardDir: string;
 }
@@ -31,6 +32,7 @@ export function loadConfig(): Config {
     storageProvider: process.env.STREAMVAULT_STORAGE_PROVIDER,
     tgStorageBotToken: process.env.STREAMVAULT_TG_STORAGE_BOT_TOKEN,
     tgStorageChannelId: process.env.STREAMVAULT_TG_STORAGE_CHANNEL_ID,
+    enableExternalStreams: process.env.STREAMVAULT_ENABLE_EXTERNAL_STREAMS,
     torrentioBaseUrl: process.env.STREAMVAULT_TORRENTIO_BASE_URL,
     dashboardDir: process.env.STREAMVAULT_DASHBOARD_DIR || "dashboard/dist",
   };

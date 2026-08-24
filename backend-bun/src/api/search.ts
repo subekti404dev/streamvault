@@ -4,6 +4,7 @@ import type { AppBindings } from "../app";
 import { badRequest, notFound } from "../error";
 import * as queries from "../db/queries";
 import { fetchTorrentMeta, analyzeTorrentSafety } from "./torrent";
+import { aggregateProviders, builtinProviders } from "../providers";
 
 interface SearchRequest {
   imdb_id: string;
@@ -168,7 +169,10 @@ function getSettingOrEnv(c: Context<AppBindings>, key: string): string | undefin
   if (fromDb) return fromDb;
   const val = c.var.config[key as keyof typeof c.var.config];
   if (typeof val === "string") return val;
-  return undefined;
+  // settings keys are snake_case, config fields are camelCase
+  const camel = key.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase()) as keyof typeof c.var.config;
+  const v2 = c.var.config[camel];
+  return typeof v2 === "string" ? v2 : undefined;
 }
 
 interface CinemetaMeta {
@@ -244,6 +248,13 @@ async function searchTorrentio(
   mediaType: string,
   streamId: string,
 ): Promise<TorrentEntry[]> {
+  // External addon source (Torrentio/Comet) can be disabled entirely — results
+  // then come only from built-in providers.
+  const enabled = (getSettingOrEnv(c, "enable_external_streams") ?? "true") !== "false";
+  if (!enabled) {
+    console.log("[search] external stream source disabled, using local providers only");
+    return [];
+  }
   const baseUrl = getSettingOrEnv(c, "torrentioBaseUrl") ?? "https://torrentio.strem.fun";
   const url = `${baseUrl}/stream/${mediaType}/${streamId}.json`;
   const resp = await fetch(url, { headers: { "User-Agent": "StreamVault/1.0" } });
@@ -298,6 +309,32 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
       : body.imdb_id;
 
   const torrents = await searchTorrentio(c, body.media_type, streamId);
+
+  // Local built-in providers (YTS/EZTV). Dedup against external results,
+  // keeping the first occurrence (external wins on hash collision).
+  const seen = new Set(torrents.map((t) => t.infohash.toLowerCase()));
+  const providerResults = await aggregateProviders(builtinProviders, {
+    mediaType: body.media_type === "series" ? "series" : "movie",
+    imdbId: body.imdb_id,
+    title: meta.title ?? "",
+    year: meta.year,
+    season: body.season,
+    episode: body.episode,
+  });
+  for (const r of providerResults) {
+    if (seen.has(r.infoHash)) continue;
+    seen.add(r.infoHash);
+    torrents.push({
+      name: `[P2P] ${r.provider.toUpperCase()}`,
+      title: r.title,
+      filename: "",
+      sizeBytes: r.sizeBytes,
+      infohash: r.infoHash,
+      magnetUri: buildMagnet(r.infoHash, r.title),
+      fileIdx: 0,
+    });
+  }
+
   // Quality-sort a wider slice first, then drop verified-unsafe entries so
   // deeper healthy candidates can fill the final limit.
   const candidates = filterTorrents(torrents, VALIDATE_SLICE);
