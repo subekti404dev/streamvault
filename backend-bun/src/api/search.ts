@@ -233,9 +233,10 @@ interface TorrentioStream {
   infoHash?: string;
   name?: string;
   title?: string;
+  description?: string;
   size?: number;
   fileIdx?: number;
-  behaviorHints?: { filename?: string; fileIdx?: number };
+  behaviorHints?: { filename?: string; fileIdx?: number; videoSize?: number };
 }
 
 async function searchTorrentio(
@@ -254,10 +255,17 @@ async function searchTorrentio(
   for (const stream of streams) {
     if (!stream.infoHash) continue;
     const name = stream.name ?? "Unknown";
-    const title = stream.title ?? stream.infoHash;
+    // Torrentio puts release info in `title`; Comet-style addons put it in
+    // `description` (first line) and omit `size` in favour of videoSize.
+    const title =
+      stream.title
+      ?? stream.description?.split("\n")[0]?.replace(/^📄\s*/, "").trim()
+      ?? stream.infoHash;
     const filename = stream.behaviorHints?.filename ?? "";
-    const sizeBytes = typeof stream.size === "number" ? stream.size : 0;
-    const fileIdx = 
+    const sizeBytes =
+      typeof stream.size === "number" ? stream.size :
+      typeof stream.behaviorHints?.videoSize === "number" ? stream.behaviorHints.videoSize : 0;
+    const fileIdx =
       typeof stream.behaviorHints?.fileIdx === "number" ? stream.behaviorHints.fileIdx :
       typeof stream.fileIdx === "number" ? stream.fileIdx : 0;
 
