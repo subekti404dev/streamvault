@@ -62,8 +62,8 @@ while IFS= read -r file; do
   CURRENT=$((CURRENT + 1))
   BASENAME=$(basename "$file")
 
-  # Get real duration from parsed playlist, fallback to 6.0
-  DURATION="${CHUNK_DURATIONS[$BASENAME]:-6.0}"
+  # Get real duration from parsed playlist, fallback to 10.0
+  DURATION="${CHUNK_DURATIONS[$BASENAME]:-10.0}"
 
   echo "[$CURRENT/$TOTAL] Uploading $BASENAME (duration: ${DURATION}s)..."
 
@@ -119,8 +119,9 @@ while IFS= read -r file; do
     FAILED_COUNT=$((FAILED_COUNT + 1))
   fi
 
-  # Small delay between files to avoid rate limits
-  sleep 0.05
+  # Pace uploads to stay under Telegram's send rate limit and avoid 429 penalties.
+  # Override with TG_UPLOAD_DELAY (seconds) if your bot is allowed to go faster.
+  sleep "${TG_UPLOAD_DELAY:-0.8}"
 done <<< "$FILES"
 
 echo "Upload complete: $CURRENT files processed, $FAILED_COUNT failed"
