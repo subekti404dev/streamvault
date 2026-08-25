@@ -1,11 +1,14 @@
 import type { ProviderContext, ProviderResult, TorrentProvider } from "./types";
 import { parseSizeToBytes, titleWordsMatch } from "./types";
 
-// Mirrors rotate frequently; first success is remembered for the process lifetime.
+// Official YTS/YIFY domains. Mirrors rotate frequently; first success is
+// remembered for the process lifetime and retried first next time.
 const MIRRORS = [
-  "https://yts.mx",
+  "https://yts.gg",
   "https://yts.lt",
-  "https://yts.zone",
+  "https://yts.am",
+  "https://yts.bz",
+  "https://yts.ag",
 ];
 let activeMirror: string | null = null;
 
