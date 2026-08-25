@@ -39,17 +39,38 @@ export async function createJob(c: Context<AppBindings>) {
     throw badRequest("Invalid magnet URI format — must start with magnet:?");
   }
 
-  // Safety gate: fetch real torrent metadata and reject poisoned/malware uploads.
-  // Fail-open when the .torrent cache is unreachable so availability isn't held
-  // hostage by itorrents.org.
-  const meta = await fetchTorrentMeta(infohash.toLowerCase());
-  if (meta) {
-    const safety = analyzeTorrentSafety(meta.name, meta.files);
-    if (!safety.safe) {
-      throw badRequest(`Torrent rejected (${safety.reason})`);
+  // Safety gate: consult verdict cache first (populated by search/inspect),
+  // otherwise fetch real torrent metadata and persist the result. Reject
+  // verified-unsafe uploads; fail open when metadata is unavailable so
+  // availability isn't held hostage by itorrents.org.
+  const ih = infohash.toLowerCase();
+  if (!/^[a-f0-9]{40}$/i.test(ih)) {
+    throw badRequest("Invalid infohash: must be 40 hex characters");
+  }
+  const cached = queries.getTorrentVerdictFull(c.var.db, ih);
+  if (cached?.verified) {
+    if (!cached.safe) {
+      throw badRequest(`Torrent rejected (${cached.reason ?? "unsafe contents"})`);
     }
   } else {
-    console.warn(`[queue] could not verify torrent contents for infohash=${infohash}, allowing`);
+    const meta = await fetchTorrentMeta(ih);
+    if (meta.status === "ok") {
+      const safety = analyzeTorrentSafety(meta.name, meta.files);
+      queries.upsertTorrentVerdict(c.var.db, {
+        infohash: ih,
+        verified: true,
+        safe: safety.safe,
+        reason: safety.reason ?? null,
+        name: meta.name,
+        fileCount: meta.files.length,
+        filesJson: JSON.stringify(meta.files),
+      });
+      if (!safety.safe) {
+        throw badRequest(`Torrent rejected (${safety.reason})`);
+      }
+    } else {
+      console.warn(`[queue] could not verify torrent contents for infohash=${ih}, allowing`);
+    }
   }
 
   const jobId = crypto.randomUUID();

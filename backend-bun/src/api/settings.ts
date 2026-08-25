@@ -34,7 +34,6 @@ function configValue(config: AppBindings["Variables"]["config"], key: string): s
     case "storage_provider": return config.storageProvider;
     case "tg_storage_bot_token": return config.tgStorageBotToken;
     case "tg_storage_channel_id": return config.tgStorageChannelId;
-    case "tg_storage_channel_id": return config.tgStorageChannelId;
     case "public_base_url": return config.publicBaseUrl;
     default: return undefined;
   }

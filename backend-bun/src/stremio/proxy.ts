@@ -286,7 +286,7 @@ async function resolveTgUrl(c: Context<AppBindings>, fileId: string): Promise<st
     const filePath = result?.file_path;
     if (typeof filePath !== "string") return null;
 
-    const url = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+    const url = `https://api.telegram.org/file/bot${botToken}/${encodeURIComponent(filePath)}`;
 
     if (TG_URL_CACHE.size >= TG_CACHE_MAX_ENTRIES) {
       const oldest = TG_URL_CACHE.keys().next().value;
@@ -296,7 +296,7 @@ async function resolveTgUrl(c: Context<AppBindings>, fileId: string): Promise<st
 
     return url;
   } catch (e) {
-    console.log("[proxy] telegram getFile error:", e);
+    console.log("[proxy] telegram getFile error:", e instanceof Error ? e.message : String(e));
     return null;
   }
 }

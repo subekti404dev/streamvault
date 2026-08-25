@@ -302,8 +302,10 @@ export function deleteJob(db: DrizzleDB, id: string): void {
 }
 
 export function deleteJobsByImdbId(db: DrizzleDB, imdbId: string): number {
-  const result = db.delete(jobs).where(eq(jobs.imdbId, imdbId)).run();
-  return result.changes;
+  const existing = db.select({ id: jobs.id }).from(jobs).where(eq(jobs.imdbId, imdbId)).all();
+  const count = existing.length;
+  if (count > 0) db.delete(jobs).where(eq(jobs.imdbId, imdbId)).run();
+  return count;
 }
 
 // ── Job Events ──
@@ -362,6 +364,7 @@ export function getHlsChunks(db: DrizzleDB, jobId: string): HlsChunkRow[] {
 export interface TorrentVerdict {
   verified: boolean;
   safe: boolean;
+  checkedAt: string;
 }
 
 export function getTorrentVerdicts(db: DrizzleDB, infohashes: string[]): Map<string, TorrentVerdict> {
@@ -371,7 +374,7 @@ export function getTorrentVerdicts(db: DrizzleDB, infohashes: string[]): Map<str
     .where(inArray(torrentVerdicts.infohash, infohashes))
     .all();
   for (const row of rows) {
-    map.set(row.infohash, { verified: row.verified === 1, safe: row.safe === 1 });
+    map.set(row.infohash, { verified: row.verified === 1, safe: row.safe === 1, checkedAt: row.checkedAt });
   }
   return map;
 }

@@ -27,9 +27,10 @@ interface BencodeDict {
   [key: string]: BencodeValue;
 }
 
-class BencodeReader {
+export class BencodeReader {
   private pos = 0;
-  /** Byte span [start, end) of the most recently parsed "info" dict value */
+  private depth = 0;
+  /** Byte span [start, end) of the top-level "info" dict value */
   infoSpan: [number, number] | null = null;
 
   constructor(private data: Uint8Array) {}
@@ -81,9 +82,12 @@ class BencodeReader {
       end++;
     }
     const lenStr = new TextDecoder().decode(this.data.subarray(this.pos, end));
+    if (!/^\d+$/.test(lenStr)) {
+      throw new Error(`Bencode: invalid string length prefix "${lenStr}" at offset ${this.pos}`);
+    }
     const len = parseInt(lenStr, 10);
-    if (len < 0 || len > this.data.length - this.pos) {
-      throw new Error(`Bencode: invalid string length ${len} at offset ${this.pos}`);
+    if (len > this.data.length - end - 1) {
+      throw new Error(`Bencode: string length ${len} exceeds buffer at offset ${this.pos}`);
     }
     this.pos = end + 1;
     const str = new TextDecoder().decode(this.data.subarray(this.pos, this.pos + len));
@@ -93,19 +97,22 @@ class BencodeReader {
 
   private parseDict(): BencodeDict {
     this.readByte(); // 'd'
+    this.depth++;
     const dict: BencodeDict = {};
     while (this.peek() !== 0x65 /* 'e' */) {
       const key = this.parseString();
-      if (key === "info") {
+      if (key === "info" && this.depth === 1) {
+        // Only the top-level "info" counts — crafted nested keys must not
+        // influence the integrity span.
         const start = this.pos;
-        const value = this.parse();
+        dict[key] = this.parse();
         this.infoSpan = [start, this.pos];
-        dict[key] = value;
       } else {
         dict[key] = this.parse();
       }
     }
     this.readByte(); // 'e'
+    this.depth--;
     return dict;
   }
 
@@ -144,34 +151,39 @@ function fileExtension(name: string): string {
 }
 
 export function analyzeTorrentSafety(
-  name: string,
-  files: TorrentFileEntry[],
+  _name: string,
+  files: TorrentFileEntry[] | null | undefined,
 ): { safe: boolean; reason?: string } {
+  if (!files || files.length === 0) {
+    return { safe: false, reason: "no media files found in torrent" };
+  }
   let hasVideo = false;
   for (const f of files) {
-    const ext = fileExtension(f.name) || (files.length === 1 ? fileExtension(name) : "");
+    const ext = fileExtension(f.name);
     if (EXECUTABLE_EXTENSIONS.has(ext)) {
       return { safe: false, reason: `contains executable file: ${f.name}` };
     }
     if (VIDEO_EXTENSIONS.has(ext)) hasVideo = true;
   }
-  if (files.length > 0 && !hasVideo && !fileExtension(name)) {
+  if (files.length > 0 && !hasVideo) {
     return { safe: false, reason: "no media files found in torrent" };
-  }
-  if (!hasVideo && EXECUTABLE_EXTENSIONS.has(fileExtension(name))) {
-    return { safe: false, reason: `executable torrent: ${name}` };
   }
   return { safe: true };
 }
 
-export async function fetchTorrentMeta(infohash: string, timeoutMs = 15_000): Promise<{ name: string; files: TorrentFileEntry[] } | null> {
+export type TorrentMetaResult =
+  | { status: "ok"; name: string; files: TorrentFileEntry[] }
+  | { status: "mismatch"; actualHash: string }
+  | { status: "unavailable" };
+
+export async function fetchTorrentMeta(infohash: string, timeoutMs = 15_000): Promise<TorrentMetaResult> {
   const url = `https://itorrents.org/torrent/${infohash.toUpperCase()}.torrent`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) return null;
+    if (!resp.ok) return { status: "unavailable" };
 
     const buf = new Uint8Array(await resp.arrayBuffer());
     const reader = new BencodeReader(buf);
@@ -179,21 +191,21 @@ export async function fetchTorrentMeta(infohash: string, timeoutMs = 15_000): Pr
     const decoded = (typeof parsed === "object" && !Array.isArray(parsed))
       ? parsed as BencodeDict
       : null;
-    if (!decoded) return null;
+    if (!decoded) return { status: "unavailable" };
 
     // Integrity check: sha1 of the canonical bencoded "info" dict must equal
     // the requested infohash. Public .torrent caches serve arbitrary placeholder
     // payloads on cache misses — never trust unverified bytes.
-    if (!reader.infoSpan) return null;
+    if (!reader.infoSpan) return { status: "unavailable" };
     const [start, end] = reader.infoSpan;
     const actual = createHash("sha1").update(buf.subarray(start, end)).digest("hex");
     if (actual !== infohash.toLowerCase()) {
       console.warn(`[torrent] infohash mismatch for ${infohash}: got ${actual} (cache miss / poisoned placeholder)`);
-      return null;
+      return { status: "mismatch", actualHash: actual };
     }
 
     const info = decoded.info;
-    if (!info || typeof info !== "object" || Array.isArray(info)) return null;
+    if (!info || typeof info !== "object" || Array.isArray(info)) return { status: "unavailable" };
 
     const infoDict = info as BencodeDict;
     const name = typeof infoDict.name === "string" ? infoDict.name : "unknown";
@@ -219,9 +231,9 @@ export async function fetchTorrentMeta(infohash: string, timeoutMs = 15_000): Pr
       files.push({ index: 0, name, size_bytes: infoDict.length });
     }
 
-    return { name, files };
+    return { status: "ok", name, files };
   } catch {
-    return null;
+    return { status: "unavailable" };
   } finally {
     clearTimeout(timer);
   }
@@ -254,7 +266,7 @@ export async function inspectTorrent(c: Context<AppBindings>): Promise<Response>
   }
 
   const meta = await fetchTorrentMeta(infohash);
-  if (!meta) throw badRequest("Torrent metadata not available on public cache");
+  if (meta.status !== "ok") throw badRequest("Torrent metadata not available on public cache");
 
   const safety = analyzeTorrentSafety(meta.name, meta.files);
   queries.upsertTorrentVerdict(c.var.db, {

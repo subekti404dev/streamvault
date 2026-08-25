@@ -41,7 +41,9 @@ Set via environment variables or the dashboard Settings page:
 | `STREAMVAULT_DISCORD_CHANNEL_ID` | — | Discord channel for uploads |
 | `STREAMVAULT_TELEGRAM_BOT_TOKEN` | — | Telegram bot for notifications |
 | `STREAMVAULT_TELEGRAM_CHANNEL_ID` | — | Telegram channel for alerts |
-| `STREAMVAULT_TORRENTIO_BASE_URL` | — | Torrentio proxy URL |
+| `STREAMVAULT_STORAGE_PROVIDER` | — | HLS chunk storage: `telegram` (default) or `discord` |
+| `STREAMVAULT_TG_STORAGE_BOT_TOKEN` | — | Separate bot for chunk storage (falls back to `STREAMVAULT_TELEGRAM_BOT_TOKEN`) |
+| `STREAMVAULT_TG_STORAGE_CHANNEL_ID` | — | Channel for chunk storage (falls back to `STREAMVAULT_TELEGRAM_CHANNEL_ID`) |
 
 ## Development
 
@@ -64,7 +66,7 @@ https://your-server.com/manifest.json
 
 ## Pipeline Flow
 
-1. **Search** — Enter IMDB ID → fetch metadata + torrents via Torrentio
+1. **Search** — Enter IMDB ID → Cinemeta metadata + built-in torrent providers (YTS, EZTV), validated against real `.torrent` contents
 2. **Queue** — Select a torrent → job enters FIFO queue
 3. **Download** — GHA downloads via transmission-cli, saves checkpoint artifact
 4. **Transcode** — ffmpeg converts to HLS (H.264 + AAC stereo @128k, 3s segments). Audio forced to stereo (`-ac 2`) for browser MSE compatibility.

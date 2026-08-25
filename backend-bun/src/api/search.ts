@@ -268,11 +268,15 @@ export async function searchHandler(c: Context<AppBindings>): Promise<Response> 
 const VALIDATE_SLICE = 12;
 const SEARCH_LIMIT = 5;
 const VALIDATE_TIMEOUT_MS = 7_000;
+const VALIDATE_CONCURRENCY = 4;
+/** Re-attempt unverifiable hashes after this long (itorrents may cache them later) */
+const NEGATIVE_VERDICT_TTL_MS = 6 * 3600 * 1000;
 
 /**
  * Drop torrents whose real .torrent contents verify as unsafe (executables,
  * no media). Verdicts are cached per-infohash; unverifiable hashes (cache
- * miss at itorrents) are kept but flagged `verified: false`.
+ * miss at itorrents) are kept but flagged `verified: false`, with a TTL so
+ * they get re-checked later without hammering itorrents on every search.
  */
 async function applyVerdicts(
   c: Context<AppBindings>,
@@ -282,15 +286,29 @@ async function applyVerdicts(
 
   const hashes = [...new Set(torrents.map((t) => t.infohash.toLowerCase()))];
   const verdicts = queries.getTorrentVerdicts(c.var.db, hashes);
-  const missing = hashes.filter((h) => !verdicts.has(h));
+  const now = Date.now();
+  const missing = hashes.filter((h) => {
+    const v = verdicts.get(h);
+    if (!v) return true;
+    if (v.verified) return false;
+    // negative entries expire so late-cached torrents eventually verify
+    return now - new Date(v.checkedAt + "Z").getTime() > NEGATIVE_VERDICT_TTL_MS;
+  });
 
-  if (missing.length > 0) {
+  for (let i = 0; i < missing.length; i += VALIDATE_CONCURRENCY) {
+    const batch = missing.slice(i, i + VALIDATE_CONCURRENCY);
     const results = await Promise.allSettled(
-      missing.map((ih) => fetchTorrentMeta(ih, VALIDATE_TIMEOUT_MS)),
+      batch.map((ih) => fetchTorrentMeta(ih, VALIDATE_TIMEOUT_MS)),
     );
-    results.forEach((res, i) => {
-      if (res.status !== "fulfilled" || !res.value) return;
-      const ih = missing[i];
+    results.forEach((res, j) => {
+      if (res.status !== "fulfilled" || res.value.status === "unavailable") return; // transient — retry next search
+      const ih = batch[j];
+      if (res.value.status === "mismatch") {
+        // stable signal: itorrents serves a placeholder for this hash
+        queries.upsertTorrentVerdict(c.var.db, { infohash: ih, verified: false, safe: false });
+        verdicts.set(ih, { verified: false, safe: false, checkedAt: new Date().toISOString() });
+        return;
+      }
       const safety = analyzeTorrentSafety(res.value.name, res.value.files);
       queries.upsertTorrentVerdict(c.var.db, {
         infohash: ih,
@@ -301,7 +319,7 @@ async function applyVerdicts(
         fileCount: res.value.files.length,
         filesJson: JSON.stringify(res.value.files),
       });
-      verdicts.set(ih, { verified: true, safe: safety.safe });
+      verdicts.set(ih, { verified: true, safe: safety.safe, checkedAt: new Date().toISOString() });
     });
   }
 

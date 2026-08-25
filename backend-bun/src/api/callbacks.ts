@@ -31,11 +31,12 @@ export async function progressCallback(c: Context<AppBindings>): Promise<Respons
     const chunk = body.chunk as Record<string, any>;
     const discordUrl = chunk.discord_url ?? null;
     const tgFileId = chunk.tg_file_id ?? null;
-    if (discordUrl || tgFileId) {
+    const filename = (chunk.filename ?? "").trim();
+    if ((discordUrl || tgFileId) && filename) {
       queries.insertHlsChunk(c.var.db, {
         jobId: id,
         chunkIndex: chunk.chunk_index ?? chunk.index ?? 0,
-        filename: chunk.filename ?? "",
+        filename,
         discordUrl,
         discordMessageId: chunk.discord_message_id ?? null,
         durationSeconds: chunk.duration_seconds ?? null,

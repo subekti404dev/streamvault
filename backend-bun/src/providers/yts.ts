@@ -27,7 +27,11 @@ interface YtsMovie {
 
 async function fetchMovies(query: string): Promise<YtsMovie[]> {
   const path = `/api/v2/list_movies.json?query_term=${encodeURIComponent(query)}&limit=50&sort_by=seeds&order_by=desc`;
-  const candidates = activeMirror ? [activeMirror] : MIRRORS;
+  // Try the last-known-good mirror first, but always fall back to the rest —
+  // mirrors die often, so a sticky choice must never become a dead end.
+  const candidates = activeMirror
+    ? [activeMirror, ...MIRRORS.filter((m) => m !== activeMirror)]
+    : MIRRORS;
 
   for (const base of candidates) {
     try {
@@ -43,7 +47,7 @@ async function fetchMovies(query: string): Promise<YtsMovie[]> {
       activeMirror = base;
       return [];
     } catch {
-      // try next mirror
+      if (activeMirror === base) activeMirror = null;
     }
   }
   return [];
