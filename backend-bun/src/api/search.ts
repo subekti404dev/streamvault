@@ -35,7 +35,7 @@ export interface TorrentEntry {
 }
 
 const LOW_QUALITY_KEYWORDS = [
-  "cam", "screener", "3d", "ts", "tc", "hdcam", "hdts",
+  "cam", "screener", "3d", "hdcam", "hdts",
   "r5", "dvdscr", "hdscr", "telecine", "telesync", "hdtc",
   "dvdscreener", "bdscr", "ppv", "dvdrip", "vhsrip",
 ];
@@ -144,7 +144,7 @@ function isLowQuality(title: string): boolean {
 
 function filterTorrents(torrents: TorrentEntry[], limit: number): TorrentEntry[] {
   return torrents
-    .filter((t) => !isLowQuality(t.title) && !isLowQuality(t.name))
+    .filter((t) => !isLowQuality(t.title))
     .sort((a, b) => {
       const sa = qualityScore(a.title);
       const sb = qualityScore(b.title);
