@@ -176,13 +176,16 @@ jobs:
             -i "$INPUT_FILE" \
             -map 0:v:0 -map 0:a:0 \
             -c:v libx264 -profile:v high -preset veryfast -crf 28 -pix_fmt yuv420p \
+            -b:v 2500k -maxrate 3500k -bufsize 7000k \
             -c:a aac -ac 2 -b:a 128k \
             -vf "scale=-2:$TARGET_HEIGHT:flags=lanczos" \
-            -g 30 -keyint_min 30 \
-            -hls_time 1 \
-            -hls_segment_size 1000000 \
+            -g 180 -keyint_min 180 -sc_threshold 0 \
+            -force_key_frames "expr:gte(t,n_forced*6)" \
+            -hls_time 6 \
+            -hls_flags independent_segments+split_by_time \
             -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
+            -hls_list_size 0 \
             -max_muxing_queue_size 1024 \
             -threads 2 \
             "${HLS_DIR}/master.m3u8" 2> "$LOG_FILE" &
