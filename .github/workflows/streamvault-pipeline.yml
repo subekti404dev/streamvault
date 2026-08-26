@@ -179,10 +179,9 @@ jobs:
             -b:v 2500k -maxrate 3500k -bufsize 7000k \
             -c:a aac -ac 2 -b:a 128k \
             -vf "scale=-2:$TARGET_HEIGHT:flags=lanczos" \
-            -g 300 -keyint_min 300 -sc_threshold 0 \
-            -force_key_frames "expr:gte(t,n_forced*10)" \
+            -g 250 -keyint_min 25 \
             -hls_time 10 \
-            -hls_flags independent_segments+split_by_time \
+            -hls_flags independent_segments \
             -hls_segment_filename "${HLS_DIR}/seg_%04d.ts" \
             -hls_playlist_type vod \
             -hls_list_size 0 \
