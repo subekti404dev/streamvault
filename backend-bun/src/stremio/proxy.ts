@@ -5,6 +5,7 @@ import { hlsChunks } from "../db/schema";
 import { notFound } from "../error";
 import * as queries from "../db/queries";
 import { getStorageTgCredential } from "../pipeline/trigger";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 function resolveBaseUrl(c: Context<AppBindings>): string {
   const host = c.req.header("x-forwarded-host");
@@ -126,85 +127,135 @@ export async function chunkHandler(c: Context<AppBindings>) {
   const rangeHeader = c.req.header("range");
   const rangeValue = rangeHeader?.startsWith("bytes=") ? rangeHeader.slice(6) : undefined;
 
-  // Telegram path — Bot API getFile, stateless HTTP like Discord
-  if (row.storageProvider === "telegram") {
-    const fileId = row.tgFileId;
-    if (!fileId) {
-      return c.json({ error: "telegram segment missing file_id" }, 502);
-    }
-    const url = await resolveTgUrl(c, fileId);
-    if (!url) {
-      return c.json({ error: "failed to resolve telegram file" }, 502);
-    }
-    const result = await tryFetchChunk(url, rangeValue);
-    if (result) return result;
-    console.log(`[proxy] telegram fetch failed for jobId=${jobId} filename=${filename}`);
-    return c.json({ error: "segment unavailable", details: "Telegram download failed" }, 502);
+  // Serve from local VPS cache when possible — Telegram/Discord CDN is high
+  // latency and doesn't support range well, so caching each segment locally
+  // (with proper byte-range support) is what keeps ExoPlayer from rebuffering.
+  const cacheFile = `${HLS_CACHE_DIR}/${jobId}/${encodeURIComponent(filename)}`;
+  const cached = serveFromCache(cacheFile, rangeValue);
+  if (cached) return cached;
+
+  const buf = await fetchSegmentBytes(c, row, jobId, filename);
+  if (!buf) {
+    console.log(`[proxy] segment unavailable for jobId=${jobId} filename=${filename}`);
+    return c.json({ error: "segment unavailable" }, 502);
   }
-
-  const storedUrl: string | null = row.discordUrl;
-  if (!storedUrl) {
-    return c.json({ error: "segment not found" }, 404);
-  }
-  const msgId = row.discordMessageId ?? null;
-
-  const result = await tryFetchChunk(storedUrl, rangeValue);
-  if (result) return result;
-
-  // Try refreshing CDN URL
-  const refreshUrl = await refreshDiscordUrl(c, jobId, msgId);
-  if (refreshUrl) {
-    const retry = await tryFetchChunk(refreshUrl, rangeValue);
-    if (retry) {
-      c.var.db
-        .update(hlsChunks)
-        .set({ discordUrl: refreshUrl })
-        .where(and(eq(hlsChunks.jobId, jobId), eq(hlsChunks.filename, filename)))
-        .run();
-      return retry;
-    }
-  }
-
-  console.log(`[proxy] all attempts failed for jobId=${jobId} filename=${filename}`);
-  return c.json({ error: "segment unavailable", details: "Discord CDN URL expired and could not be refreshed" }, 502);
-}
-
-async function tryFetchChunk(
-  url: string,
-  range?: string,
-): Promise<Response | null> {
-  const headers: Record<string, string> = {};
-  if (range) headers.Range = `bytes=${range}`;
 
   try {
-    const resp = await fetch(url, { headers });
-    const status = resp.status;
+    mkdirSync(`${HLS_CACHE_DIR}/${jobId}`, { recursive: true });
+    writeFileSync(cacheFile, buf);
+  } catch (e) {
+    console.log(`[proxy] cache write failed:`, e instanceof Error ? e.message : String(e));
+  }
+  return serveBytes(buf, rangeValue);
+}
 
-    if (status !== 200 && status !== 206) {
-      console.log(`[proxy] fetch returned ${status} for ${url.slice(0, 80)}...`);
+// In-flight dedupe so concurrent requests for the same segment don't each hit
+// Telegram/Discord.
+const IN_FLIGHT = new Map<string, Promise<Buffer | null>>();
+
+async function fetchSegmentBytes(
+  c: Context<AppBindings>,
+  row: { discordUrl: string | null; discordMessageId: string | null; tgFileId: string | null; storageProvider: string | null },
+  jobId: string,
+  filename: string,
+): Promise<Buffer | null> {
+  const key = `${jobId}/${filename}`;
+  const existing = IN_FLIGHT.get(key);
+  if (existing) return existing;
+
+  const p = (async (): Promise<Buffer | null> => {
+    try {
+      if (row.storageProvider === "telegram") {
+        const fileId = row.tgFileId;
+        if (!fileId) return null;
+        const url = await resolveTgUrl(c, fileId);
+        if (!url) return null;
+        return await fetchFullBytes(url);
+      }
+
+      const storedUrl = row.discordUrl;
+      if (!storedUrl) return null;
+      let buf = await fetchFullBytes(storedUrl);
+      if (buf) return buf;
+
+      const refreshUrl = await refreshDiscordUrl(c, jobId, row.discordMessageId);
+      if (refreshUrl) {
+        buf = await fetchFullBytes(refreshUrl);
+        if (buf) {
+          c.var.db
+            .update(hlsChunks)
+            .set({ discordUrl: refreshUrl })
+            .where(and(eq(hlsChunks.jobId, jobId), eq(hlsChunks.filename, filename)))
+            .run();
+        }
+        return buf;
+      }
+      return null;
+    } finally {
+      IN_FLIGHT.delete(key);
+    }
+  })();
+
+  IN_FLIGHT.set(key, p);
+  return p;
+}
+
+function serveFromCache(path: string, range?: string): Response | null {
+  if (!existsSync(path)) return null;
+  try {
+    return serveBytes(readFileSync(path), range);
+  } catch {
+    return null;
+  }
+}
+
+function serveBytes(buf: Buffer, range?: string): Response {
+  const total = buf.length;
+  if (range) {
+    const m = range.match(/bytes=(\d*)-(\d*)/);
+    let start = m && m[1] ? parseInt(m[1], 10) : 0;
+    let end = m && m[2] ? parseInt(m[2], 10) : total - 1;
+    if (Number.isNaN(start)) start = 0;
+    if (Number.isNaN(end) || end >= total) end = total - 1;
+    if (start > end) start = end;
+    const slice = buf.subarray(start, end + 1);
+    return new Response(new Uint8Array(slice), {
+      status: 206,
+      headers: segmentHeaders(total, slice.length, `bytes ${start}-${end}/${total}`),
+    });
+  }
+  return new Response(new Uint8Array(buf), {
+    status: 200,
+    headers: segmentHeaders(total, total),
+  });
+}
+
+function segmentHeaders(total: number, contentLength: number, contentRange?: string): Record<string, string> {
+  const h: Record<string, string> = {
+    "Content-Type": "video/mp2t",
+    "Accept-Ranges": "bytes",
+    "Content-Length": String(contentLength),
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Range",
+    "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Content-Type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Cache-Control": "public, max-age=31536000",
+  };
+  if (contentRange) h["Content-Range"] = contentRange;
+  return h;
+}
+
+async function fetchFullBytes(url: string): Promise<Buffer | null> {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.log(`[proxy] source fetch returned ${resp.status} for ${url.slice(0, 80)}...`);
       return null;
     }
-
-    const contentLength = resp.headers.get("content-length");
-    const contentRange = resp.headers.get("content-range");
-
-    const outHeaders: Record<string, string> = {
-      "Content-Type": "video/mp2t",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Range",
-      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Content-Type",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Accept-Ranges": "bytes",
-    };
-    if (contentLength) outHeaders["Content-Length"] = contentLength;
-    if (contentRange) outHeaders["Content-Range"] = contentRange;
-    if (status === 206) {
-      outHeaders["Cache-Control"] = "public, max-age=31536000";
-    }
-
-    return new Response(resp.body, { status, headers: outHeaders });
+    const ab = await resp.arrayBuffer();
+    return Buffer.from(ab);
   } catch (e) {
-    console.log(`[proxy] fetch error for chunk:`, e);
+    console.log(`[proxy] source fetch error:`, e instanceof Error ? e.message : String(e));
     return null;
   }
 }
@@ -254,6 +305,10 @@ async function refreshDiscordUrl(
 // ── Telegram (Bot API) chunk proxy ─────────────────────────────────────
 // getFile → direct download URL, valid ~1h. Cache URL briefly so range
 // seeks on the same segment don't re-hit getFile.
+
+// Locally cached HLS segments (served with range support) so playback doesn't
+// re-fetch every segment from Telegram/Discord's high-latency CDNs.
+const HLS_CACHE_DIR = "data/hls_cache";
 
 const TG_URL_CACHE = new Map<string, { url: string; at: number }>();
 const TG_CACHE_TTL_MS = 3000 * 1000; // ~50 min (Bot API URLs valid ~1h)
