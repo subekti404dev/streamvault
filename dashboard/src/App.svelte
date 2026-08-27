@@ -19,7 +19,10 @@
   let toastId = 0;
 
   function addToast(message: string, type: string = 'info') {
-    toasts = [...toasts, { id: ++toastId, message, type }];
+    const id = ++toastId;
+    toasts = [...toasts, { id, message, type }];
+    // Per-item auto-dismiss so every toast clears independently
+    setTimeout(() => dismissToast(id), 5000);
   }
 
   function dismissToast(id: number) {
@@ -87,7 +90,7 @@
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       if (drawerOpen) { closeDrawer(); return; }
-      if (toasts.length > 0) { toasts = toasts.slice(0, -1); }
+      if (toasts.length > 0) { toasts = toasts.slice(1); }
     }
   }
 </script>

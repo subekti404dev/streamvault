@@ -28,6 +28,7 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   let inspectedFiles = $state<{index: number; name: string; size_bytes: number}[]>([]);
   let selectedFileIdx = $state(0);
   let torrentName = $state('');
+  let addingTorrent = $state<string | null>(null);
   let inspectingTorrent = $state<string | null>(null);
   let inspectedTorrents = $state<Record<string, { files: {index: number; name: string; size_bytes: number}[]; name: string; selectedIdx: number }>>({});
   let seriesMeta = $state<StremioMetaDetail | null>(null);
@@ -39,13 +40,27 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   );
 
   // View stack for back navigation
+  let viewDepth = 0;
   function pushView() {
+    viewDepth++;
     history.pushState(null, '');
+  }
+
+  function goBack() {
+    if (viewDepth > 0) {
+      viewDepth--;
+      history.back();
+    } else {
+      result = null;
+      selectedItem = null;
+      seriesMeta = null;
+    }
   }
 
   // popstate: back through sub-views
   $effect(() => {
     const onPop = () => {
+      if (viewDepth > 0) viewDepth--;
       if (result) {
         result = null;
       } else if (selectedItem) {
@@ -189,6 +204,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
   }
 
   async function addToQueue(torrent: Torrent) {
+    if (addingTorrent === torrent.infohash) return;
+    addingTorrent = torrent.infohash;
     try {
       const res = await api.addToQueue({
         imdb_id: imdbId.trim(),
@@ -206,6 +223,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       addToast(`Added to queue: ${result?.meta.title || selectedItem?.name}`, 'success');
     } catch (e: any) {
       addToast(`Failed: ${e.message}`, 'error');
+    } finally {
+      addingTorrent = null;
     }
   }
 
@@ -300,6 +319,10 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
 <div class="page">
   <h1 class="page-title">Search</h1>
   <p class="page-subtitle">Search for movies and series by title or IMDB ID</p>
+
+  {#if result || selectedItem}
+    <button class="back-link" onclick={goBack}>← Back to results</button>
+  {/if}
 
   <div class="search-form">
     <div class="search-bar">
@@ -523,8 +546,8 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
                 <button class="btn btn-secondary btn-sm" onclick={() => inspectTorrentFiles(torrent.infohash, torrent)} disabled={inspectingTorrent === torrent.infohash}>
                   {inspectingTorrent === torrent.infohash ? '...' : 'Files'}
                 </button>
-                <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)}>
-                  Add to Queue
+                <button class="btn btn-primary btn-sm" onclick={() => addToQueue(torrent)} disabled={addingTorrent === torrent.infohash}>
+                  {addingTorrent === torrent.infohash ? 'Adding...' : 'Add to Queue'}
                 </button>
               </div>
             </div>
@@ -638,6 +661,20 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
   }
+
+  .back-link {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    margin-bottom: 1rem;
+    transition: color 0.15s ease;
+  }
+  .back-link:hover { color: var(--accent); }
 
   .search-form {
     background: var(--surface);

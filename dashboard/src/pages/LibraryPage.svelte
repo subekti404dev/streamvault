@@ -15,6 +15,7 @@
   let page = $state(1);
   let limit = 20;
   let loading = $state(true);
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadLibrary() {
     loading = true;
@@ -42,6 +43,7 @@
     activeTab = tab;
     page = 1;
     loadLibrary();
+    window.scrollTo({ top: 0 });
   }
 
 
@@ -53,11 +55,20 @@
     loadLibrary();
     const unsub = onSseEvent((event) => {
       if (['job_completed', 'job_retried', 'job_removed'].includes(event.type as string)) {
-        loadLibrary();
+        scheduleLoad();
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (loadTimer) clearTimeout(loadTimer);
+    };
   });
+
+  // Debounce SSE-driven reloads
+  function scheduleLoad() {
+    if (loadTimer) clearTimeout(loadTimer);
+    loadTimer = setTimeout(() => { loadTimer = null; loadLibrary(); }, 700);
+  }
 </script>
 <div class="page">
   <h1 class="page-title">Library</h1>
@@ -121,7 +132,7 @@
         <button
           class="btn btn-sm"
           disabled={page === 1}
-          onclick={() => { page--; loadLibrary(); }}
+          onclick={() => { page--; loadLibrary(); window.scrollTo({ top: 0 }); }}
         >
           ◀ Prev
         </button>
@@ -129,7 +140,7 @@
         <button
           class="btn btn-sm"
           disabled={page === totalPages}
-          onclick={() => { page++; loadLibrary(); }}
+          onclick={() => { page++; loadLibrary(); window.scrollTo({ top: 0 }); }}
         >
           Next ▶
         </button>

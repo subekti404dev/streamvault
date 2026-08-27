@@ -20,6 +20,7 @@
   let events = $state<JobEvent[]>([]);
   let loading = $state(true);
   let ghRepo = $state<string | null>(null);
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadJob() {
     try {
@@ -48,7 +49,8 @@
     try {
       await api.deleteJob(id);
       addToast('Job removed', 'info');
-      job = null;
+      if (loadTimer) clearTimeout(loadTimer);
+      window.location.hash = '#queue';
     } catch (e: any) {
       addToast(`Delete failed: ${e.message}`, 'error');
     }
@@ -62,11 +64,20 @@
     }
     const unsub = onSseEvent((event) => {
       if (event.job_id === id && ['job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_started', 'job_created'].includes(event.type as string)) {
-        loadJob();
+        scheduleLoad();
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (loadTimer) clearTimeout(loadTimer);
+    };
   });
+
+  // Debounce SSE-driven reloads so frequent progress events don't thrash the UI
+  function scheduleLoad() {
+    if (loadTimer) clearTimeout(loadTimer);
+    loadTimer = setTimeout(() => { loadTimer = null; loadJob(); }, 700);
+  }
 
   function formatTime(t: string | null | undefined): string {
     if (!t) return '-';

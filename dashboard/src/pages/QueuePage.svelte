@@ -13,6 +13,7 @@
   let failed = $state<Job[]>([]);
   let loading = $state(true);
   let ghRepo = $state<string | null>(null);
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadQueue() {
     try {
@@ -43,7 +44,8 @@
     }
   }
 
-  async function deleteJob(id: string) {
+  async function deleteJob(id: string, label?: string) {
+    if (!confirm(`Remove "${label || id}" from the queue? This cannot be undone.`)) return;
     try {
       await api.deleteJob(id);
       addToast('Job removed', 'info');
@@ -57,11 +59,20 @@
     loadQueue();
     const unsub = onSseEvent((event) => {
       if (['job_created', 'job_started', 'job_progress', 'job_completed', 'job_failed', 'job_retried', 'job_removed'].includes(event.type as string)) {
-        loadQueue();
+        scheduleLoad();
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (loadTimer) clearTimeout(loadTimer);
+    };
   });
+
+  // Debounce SSE-driven reloads so rapid progress events don't thrash the UI
+  function scheduleLoad() {
+    if (loadTimer) clearTimeout(loadTimer);
+    loadTimer = setTimeout(() => { loadTimer = null; loadQueue(); }, 700);
+  }
 
   function getPhaseProgress(job: Job): { download: number; transcode: number; upload: number } {
     return {
@@ -81,7 +92,7 @@
   {:else}
     {#if processing.length > 0}
       <h2 class="section-title">Processing</h2>
-      {#each processing as job}
+      {#each processing as job (job.id)}
         <div class="job-card processing">
           <div class="job-header">
             <div>
@@ -129,7 +140,7 @@
             <span class="text-muted">Added {job.created_at ? new Date(job.created_at + 'Z').toLocaleString() : ''}</span>
             <div class="job-actions">
               <a href="#job/{job.id}" class="btn btn-sm">Details</a>
-              <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id)}>Cancel</button>
+              <button class="btn btn-sm btn-danger" onclick={() => deleteJob(job.id, job.title || job.imdb_id)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -138,7 +149,7 @@
 
     {#if queued.length > 0}
       <h2 class="section-title">Queued ({queued.length})</h2>
-      {#each queued as job, i}
+      {#each queued as job, i (job.id)}
         <div class="job-card" style="border-left-color: #F5C518;">
           <div class="job-header">
             <div>
@@ -151,7 +162,7 @@
                 <span class="text-muted">{formatBytes(job.file_size_bytes)}</span>
               {/if}
             </div>
-            <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>Cancel</button>
+            <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id, job.title || job.imdb_id)}>Cancel</button>
           </div>
         </div>
       {/each}
@@ -160,7 +171,7 @@
 
     {#if failed.length > 0}
       <h2 class="section-title">Failed ({failed.length})</h2>
-      {#each failed as job}
+      {#each failed as job (job.id)}
         <div class="job-card failed">
           <div class="job-header">
             <div>
@@ -176,7 +187,7 @@
             </div>
             <div style="display:flex; gap:0.5rem;">
               <button class="btn btn-success btn-sm" onclick={() => retryJob(job.id)}>Retry</button>
-              <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id)}>Remove</button>
+              <button class="btn btn-danger btn-sm" onclick={() => deleteJob(job.id, job.title || job.imdb_id)}>Remove</button>
             </div>
           </div>
         </div>

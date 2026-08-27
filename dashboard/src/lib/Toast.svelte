@@ -3,16 +3,6 @@
     toasts: Array<{id: number; message: string; type: string}>;
     onDismiss?: (id: number) => void;
   } = $props();
-
-  // Auto-dismiss after 5 seconds
-  $effect(() => {
-    const last = toasts[toasts.length - 1];
-    if (!last) return;
-    const timer = setTimeout(() => {
-      onDismiss?.(last.id);
-    }, 5000);
-    return () => clearTimeout(timer);
-  });
 </script>
 
 <div class="toast-container">
