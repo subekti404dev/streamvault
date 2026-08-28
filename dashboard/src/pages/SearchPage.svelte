@@ -140,6 +140,9 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
     try {
       const response = await api.searchCatalog(query.trim(), metadataBaseUrl);
       catalogResults = response.metas;
+      // Pick the tab that actually has results so series-only queries aren't hidden
+      searchTab = movieResults.length > 0 ? 'movie' : 'series';
+      sourceTab = 'results';
       if (catalogResults.length === 0) {
         error = 'No results found';
       }
@@ -407,8 +410,10 @@ const DEFAULT_METADATA_URL = 'https://aiometadatafortheweebs.midnightignite.me/s
       </div>
     {/if}
 
-    <div class="results-grid">
-      {#each (searchTab === 'movie' ? movieResults : seriesResults) as item}
+        <div class="results-grid">
+          {#each ((searchTab === 'movie' ? movieResults : seriesResults).length > 0
+            ? (searchTab === 'movie' ? movieResults : seriesResults)
+            : (movieResults.length > 0 ? movieResults : seriesResults)) as item}
         <button class="result-card" onclick={() => selectItem(item)}>
           {#if item.poster}
             <img src={item.poster} alt={item.name} class="result-poster" />
